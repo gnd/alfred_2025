@@ -38,7 +38,7 @@ def download_reel(url, download_folder, index):
     print(f"Downloaded: {file_name}")
 
 def fetch_all_thread_messages(cl, thread_id):
-    messages = cl.direct_messages(thread_id, 200)
+    messages = cl.direct_messages(thread_id, 300)
     print(f"Fetched {len(messages)} messages (latest available).")
     return messages
 

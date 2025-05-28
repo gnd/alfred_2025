@@ -8,7 +8,7 @@ from screeninfo import get_monitors
 # Configuration
 REEL_WIDTH = 300
 REEL_ANOMALY = 100
-REELS_FOLDER = 'downloaded'
+REELS_FOLDER = 'downloaded/smol'
 PORT = 6666
 HOST = 'localhost'
 LOUD = "10"
