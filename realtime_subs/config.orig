@@ -1,0 +1,6 @@
+[whisper]
+sample_rate = 16_000
+channels = 1
+chunk_seconds = 5
+whisper_bin = 
+whisper_model = 
