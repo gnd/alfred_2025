@@ -4,3 +4,16 @@ channels = 1
 chunk_seconds = 5
 whisper_bin = 
 whisper_model = 
+
+[google-stt]
+
+
+[display]
+DISPLAY_HOST = 
+DISPLAY_PORT =
+DEFAULT_PADDING_TOP =
+DEFAULT_PADDING_LEFT =
+FONT = 
+FONT_SIZE =
+MAX_WORDS =
+PAUSE_LENGTH =
