@@ -4,5 +4,8 @@ meme_deathmatch/downloaded
 gameplay/memenv
 gameplay/gameplay
 downloaded_backup_*
-realtime_subs/subs
+realtime_subs/venv
 realtime_subs/config.ini
+realtime_subs/__pycache__/
+realtime_subs/*.json
+realtime_subs/*.sh
