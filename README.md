@@ -1,5 +1,5 @@
-# Alfred 2025
+# Lil Drama
 
 Collection of scripts used for the Lil Drama performance in Alfred ve dvore theatre, Prague. 
 
-Premiere: 8.6.2025 and 9.10.2025
+Lil Drama premiere: 8.6.2025 and 9.6.2025
