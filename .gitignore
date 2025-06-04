@@ -10,3 +10,4 @@ realtime_subs/__pycache__/
 realtime_subs/*.json
 realtime_subs/*.sh
 desktop_feef/venv
+venv
