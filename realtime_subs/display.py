@@ -22,7 +22,6 @@ PADDING_LEFT = int(config.get('display', 'PADDING_LEFT'))
 DISPLAY_HEIGHT = int(config.get('display', 'DISPLAY_HEIGHT'))
 FONT_FILE = config.get('display', 'FONT')
 FONT_SIZE = int(config.get('display', 'FONT_SIZE'))
-MAX_WORDS = int(config.get('display', 'MAX_WORDS'))
 PAUSE_LENGTH = int(config.get('display', 'PAUSE_LENGTH'))
 SHOW_TRANSLATION = config.get('display', 'SHOW_TRANSLATION')
 ONCE = True
@@ -79,7 +78,7 @@ def main(port=DISPLAY_PORT, host=DISPLAY_HOST):
                 fontname=font_fname,
                 lineheight=1,
                 fontsize=FONT_SIZE,
-                align="center",
+                align="left",
                 alpha=1
             )
 

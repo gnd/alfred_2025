@@ -13,6 +13,8 @@ import threading
 import subprocess
 import configparser
 
+from math import floor
+
 from google.cloud import speech
 from google.cloud import translate_v2 as translate
 
@@ -33,7 +35,9 @@ TRANSCRIPTION_PORT = int(config.get('display', 'DISPLAY_PORT'))
 DEFAULT_PADDING_TOP = config.get('display', 'PADDING_TOP')
 DEFAULT_PADDING_LEFT = config.get('display', 'PADDING_LEFT')
 FONT_FILE = config.get('display', 'FONT')
-MAX_WORDS = config.get('display', 'MAX_WORDS')
+MAX_CHARACTERS = config.get('display', 'MAX_CHARACTERS')
+SUB_DURATION = config.get('display', 'SUB_DURATION')
+SUB_REFRESH = config.get('display', 'SUB_REFRESH')
 PAUSE_LENGTH = config.get('display', 'PAUSE_LENGTH')
 
 # Define some language codes
@@ -48,9 +52,10 @@ class App:
         self.trans_buffer = ""
         self.trans_buffer_window = ""
         self.window_wiped_flag = False
-        self.max_words = int(MAX_WORDS)
+        self.max_characters = int(MAX_CHARACTERS)
+        self.sub_duration = int(SUB_DURATION)
+        self.sub_refresh = float(SUB_REFRESH)
         self.speech_lang = speech_lang
-        self.utterances = []
 
         # Display
         self.display = DisplaySender(TRANSCRIPTION_HOST, TRANSCRIPTION_PORT)
@@ -68,45 +73,43 @@ class App:
 
             # Blocks to process audio from the mic. This function continues
             # once the end of the utterance has been recognized.        
-            text = processMicrophoneStream(
-                self.speech_lang,
-                self.handle_stt_response
-            )
+            processMicrophoneStream(self.speech_lang, self.handle_stt_response)
 
-            pgreen(text)
-
-            self.push_to_buffer(text)
-            self.dm.display()
-
-            # translate new text and display buffered translation
-            self.display_translation_async()
+            # translate and display new utterances
+            #self.display_translation_async()
 
     def handle_stt_response(self, responses):
         num_chars_printed = 0
+        start = time.time()
+        last_change = start
         for response in responses:
+            time.sleep(0.001)
             if not response.results:
                 continue
             result = response.results[0]
             if not result.alternatives:
                 continue
+
+            print(f"Alternatives: {result.alternatives[0]}")
             transcript = result.alternatives[0].transcript
-            overwrite_chars = " " * (num_chars_printed - len(transcript))
-
-            time.sleep(0.001)
-
-            if not result.is_final:
-                sys.stdout.write(transcript + overwrite_chars + "\r")
-                #self.dm.display_intermediate_translation(transcript)
-                self.dm.display_intermediate_utterances(self.utterances)
-
-                sys.stdout.flush()
-                num_chars_printed = len(transcript)
+            utterances = self.chop_utterance(self.translate_intermediate(transcript))
+            #print(f"Utterances: {utterances}")
+            ideal_utterance_number = int(floor((time.time() - start) / self.sub_duration))
+            #print(f"Ideal utterance: {ideal_utterance_number}")
+            if (len(utterances) > ideal_utterance_number):
+                if (time.time() - last_change > self.sub_refresh):
+                    last_change = time.time()
+                    #print(f"Displaying: {utterances[ideal_utterance_number]} (ideal)")
+                    self.dm.display_intermediate_translation(utterances[ideal_utterance_number])
             else:
-                #self.dm.display_intermediate_translation(transcript)
-                self.utterances.append((time.time(), transcript))
-                print(self.utterances)
-                self.dm.display_intermediate_utterances(self.utterances)
-                return (transcript + overwrite_chars + "\n")          
+                if (time.time() - last_change > self.sub_refresh):
+                    last_change = time.time()
+                    self.dm.display_intermediate_translation(utterances[-1])
+                    #print(f"Displaying: {utterances[-1]} (intermediate)")
+
+            if result.is_final:
+                self.dm.display_intermediate_translation(utterances[-1])
+
 
     def push_to_buffer(self, text):
         self.text_buffer = (concat(self.text_buffer, text)).strip()
@@ -128,24 +131,31 @@ class App:
         self.trans_buffer = ""
         self.trans_buffer_window = ""
 
-    def translate(self):
-        pyellow(f"Translating text: {self.text_buffer_window}")
-        translation = self.translate_client.translate(
-            self.text_buffer_window,
-            TARGET_LANG
-        )["translatedText"]
-        #pyellow(f"Received: {translation}")
+    def chop_utterance(self, utterance):
+        chopped_utterances = []
+        timed_utterances = []
+        while len(utterance) > self.max_characters:
+            # search for the closest "." or ","" before max_characters
+            best_location = 0
+            for element in ['.', ',']:
+                candidate_location = 0
+                location = 0
+                while location >= 0:
+                    location = utterance.find(element, location+1)
+                    if (location < self.max_characters and location != -1):
+                        candidate_location = location
+                if candidate_location > best_location:
+                    best_location = candidate_location
+            # best_location is where we chop utterance
+            chopped_utterances.append(utterance[:best_location+1])
+            utterance = utterance[best_location+1:].strip()
+        chopped_utterances.append(utterance)
+        return chopped_utterances
+
+    def translate_intermediate(self, transcript):
+        translation = self.translate_client.translate(transcript, TARGET_LANG)["translatedText"]
         translation = sanitize_translation(translation)
-        #pyellow(f"After sanitization: {translation}")
-
-        self.trans_buffer_window = translation
-        self.trans_buffer = translation
-        self.dm.display_translation()
-
-    def display_translation_async(self):
-        t = threading.Thread(target=self.translate)
-        t.start()
-
+        return translation
 
 # Ai Calls
 if __name__ == "__main__":

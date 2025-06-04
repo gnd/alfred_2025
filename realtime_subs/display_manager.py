@@ -24,22 +24,8 @@ class DisplayManager:
         self.app.last_sent_time = time.time()
 
     def display_intermediate_translation(self, text):
-        buf = self.app.trans_buffer_window if self.app.trans_buffer_window is not None else self.app.trans_buffer
-        msg = (concat(buf, text)).strip()
         self.d.send(
-            translation=msg,
-            fill=True
-        )
-        self.app.last_sent_time = time.time()
-
-    def display_intermediate_utterances(self, utterances):
-        msg = ""
-        t = time.time()
-        for utterance in utterances:
-             if (t - utterance[0] < 15):
-                msg = concat(msg, utterance[1]).strip()
-        self.d.send(
-            utterance=msg,
+            translation=text,
             fill=True
         )
         self.app.last_sent_time = time.time()
