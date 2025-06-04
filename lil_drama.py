@@ -2,6 +2,7 @@
 
 import os
 import sys
+import signal
 import socket
 import pathlib
 import threading
@@ -33,7 +34,8 @@ class lil_drama:
 			'n': self.deathmatch_new_reel,
 			'v': self.deathmatch_kill_all,
 			'r': self.toggle_deathmatch,
-			't': self.toggle_tunnel
+			't': self.toggle_tunnel,
+			'q': self.on_exit
         })
 		self.mouse_listener = mouse.Listener(
 			on_scroll=self.on_scroll,
@@ -105,21 +107,18 @@ class lil_drama:
 		except OSError as err:
 			print(f"Connection failed: {err}")
 
+	def on_exit(self):
+		print("Received command to quit.")
+		if self.tunnel_proc:
+			print("Killing tunnel ...")
+			self.tunnel_proc.kill()
+		if self.deathmatch_proc:
+			print("Terminating deathmatch ...")
+			self.deathmatch_proc.terminate()
+		print("Quitting ...")
+		sys.exit(0)
+
 	def run(self):
-		# try:
-		# 	with keyboard.GlobalHotKeys({
-		# 			'b': self.deathmatch_kill_reel,
-		# 			'n': self.deathmatch_new_reel,
-		# 			'v': self.deathmatch_kill_all,
-		# 			'r': self.toggle_deathmatch,
-		# 			't': self.toggle_tunnel
-		# 		}) as hk:
-		# 		hk.join()
-		# finally:
-		# 	if self.tunnel_proc and self.tunnel_proc.poll() is None:
-		# 		self.tunnel_proc.terminate()
-		# 	if self.deathmatch_proc and self.deathmatch_proc.poll() is None:
-		# 		self.deathmatch_proc.terminate()
 		self.key_listener.start()
 		self.mouse_listener.start()
 		try:
