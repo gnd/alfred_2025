@@ -37,36 +37,29 @@ MAX_WORDS = config.get('display', 'MAX_WORDS')
 PAUSE_LENGTH = config.get('display', 'PAUSE_LENGTH')
 
 # Define some language codes
-SPEECH_LANG = "en-US"
-TRANSLATE_TO = "cs"
+ORIGIN_LANG = "en-US"
+TARGET_LANG = "cs"
 
 class App:
-    def __init__(self, speech_lang=SPEECH_LANG, reset_pause=int(PAUSE_LENGTH)):
+    def __init__(self, speech_lang=ORIGIN_LANG, reset_pause=int(PAUSE_LENGTH)):
         self.text_buffer = ""
         self.prev_text_buffer = ""
         self.text_buffer_window = ""
-
-        self.max_words = int(MAX_WORDS)
-        self.window_wiped_flag = False
-
         self.trans_buffer = ""
         self.trans_buffer_window = ""
-
+        self.window_wiped_flag = False
+        self.max_words = int(MAX_WORDS)
         self.speech_lang = speech_lang
+        self.utterances = []
 
-        self.display = DisplaySender(
-            TRANSCRIPTION_HOST,
-            TRANSCRIPTION_PORT,
-            FONT_FILE
-        )
-        self.dm = DisplayManager(self, self.display, padding=(DEFAULT_PADDING_TOP, DEFAULT_PADDING_LEFT))
-
+        # Display
+        self.display = DisplaySender(TRANSCRIPTION_HOST, TRANSCRIPTION_PORT)
+        self.dm = DisplayManager(self, self.display)
         self.last_sent_time = 0
         self.reset_pause = reset_pause
 
         # Translation client
         self.translate_client = translate.Client()
-
         
     def run(self):
         while True:
@@ -79,12 +72,12 @@ class App:
                 self.speech_lang,
                 self.handle_stt_response
             )
-        
-            # Print "complete utterance" as recognized by the STT service.
+
             pgreen(text)
 
             self.push_to_buffer(text)
             self.dm.display()
+
             # translate new text and display buffered translation
             self.display_translation_async()
 
@@ -102,15 +95,17 @@ class App:
             time.sleep(0.001)
 
             if not result.is_final:
-                pcyan("Result not final\n")
-                sys.stdout.write(transcript + overwrite_chars + "\r")    
-                self.dm.display_intermediate(transcript)
+                sys.stdout.write(transcript + overwrite_chars + "\r")
+                #self.dm.display_intermediate_translation(transcript)
+                self.dm.display_intermediate_utterances(self.utterances)
 
                 sys.stdout.flush()
                 num_chars_printed = len(transcript)
             else:
-                pcyan("Result final\n")
-                self.dm.display_intermediate(transcript)
+                #self.dm.display_intermediate_translation(transcript)
+                self.utterances.append((time.time(), transcript))
+                print(self.utterances)
+                self.dm.display_intermediate_utterances(self.utterances)
                 return (transcript + overwrite_chars + "\n")          
 
     def push_to_buffer(self, text):
@@ -135,15 +130,13 @@ class App:
 
     def translate(self):
         pyellow(f"Translating text: {self.text_buffer_window}")
-        self.text_buffer_window,
-        target_language = TRANSLATE_TO
         translation = self.translate_client.translate(
             self.text_buffer_window,
-            target_language
+            TARGET_LANG
         )["translatedText"]
-        pyellow(f"Received: {translation}")
+        #pyellow(f"Received: {translation}")
         translation = sanitize_translation(translation)
-        pyellow(f"After sanitization: {translation}")
+        #pyellow(f"After sanitization: {translation}")
 
         self.trans_buffer_window = translation
         self.trans_buffer = translation
@@ -156,4 +149,4 @@ class App:
 
 # Ai Calls
 if __name__ == "__main__":
-    App(speech_lang=SPEECH_LANG).run()
+    App(speech_lang=ORIGIN_LANG).run()

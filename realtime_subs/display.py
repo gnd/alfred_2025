@@ -45,7 +45,12 @@ def main(port=DISPLAY_PORT, host=DISPLAY_HOST):
     window = Window.from_display_module()  
     window.opacity = 0.5
     font = pygame.font.Font(FONT_FILE, FONT_SIZE)
-    screen.fill((255,255,255))
+    font_fname = pygame.font.get_default_font()
+    black = (0,0,0)
+    white = (255,255,255)
+
+    # blank screen
+    screen.fill(black)
     pygame.display.flip()
 
     running =  True   
@@ -61,30 +66,21 @@ def main(port=DISPLAY_PORT, host=DISPLAY_HOST):
             text = msg_dict.get("translation")
         else:
             text = msg_dict.get("original")
-        
-        fill = msg_dict.get("fill")
-        font_fname = msg_dict.get("font") if msg_dict.get("font") else pygame.font.get_default_font()
-        align = msg_dict.get("align")
-        padding_top = int(msg_dict.get("padding_top")) if msg_dict.get("padding_top") else PADDING_TOP
-        padding_left = int(msg_dict.get("padding_left")) if msg_dict.get("padding_left") else PADDING_LEFT
-        font_size = msg_dict.get("font_size")
-        font_size = int(font_size) if font_size else FONT_SIZE
-        fc = (255,255,255)
 
-        if fill:
-            screen.fill(fc, (0, 0, screen_width, screen_height))
+        if msg_dict.get("fill"):
+            screen.fill(black, (0, 0, screen_width, screen_height))
     
         if text:
             ptext.draw(
                 text,
-                (padding_left, padding_top),
-                color=(0,0,0),
-                width=screen_width-2*padding_left,
+                (PADDING_LEFT, PADDING_TOP),
+                color=white,
+                width=screen_width-2*PADDING_LEFT,
                 fontname=font_fname,
                 lineheight=1,
-                fontsize=font_size,
-                align=align,
-                alpha=0.5
+                fontsize=FONT_SIZE,
+                align="center",
+                alpha=1
             )
 
         # handle some events

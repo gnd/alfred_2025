@@ -1,21 +1,15 @@
 import socket
-
-from utils import pblue, pred, pgreen, pcyan, pmagenta, pyellow
+from utils import pred
 
 class DisplaySender:
-    def __init__(self, host, port, font=None, fill_color=None):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
-        self.font = font
-        self.fill_color = fill_color
 
     def _send(self, msg):
         sock = socket.socket()
         try:
-            pgreen("connecting ..")
             sock.connect((self.host, self.port))
-            pgreen("connected ..")
-            pgreen("encoding message ..")
             sock.send(msg.encode())
         except:
             pred(f"Cannot connect to {self.host}:{self.port}")
@@ -26,11 +20,8 @@ class DisplaySender:
         self,
         original="",
         translation=None,
-        fill=True,
-        align=None,
-        padding_left=None,
-        padding_top=None,
-        font=None):
+        utterance=None,
+        fill=True):
         key_vals = []
         # Serialize all parameters
         if original:
@@ -39,17 +30,11 @@ class DisplaySender:
         if translation:
             translation = _sanitize_text(translation)
             key_vals.append(_get_key_val("translation", translation))
+        if utterance:
+            utterance = _sanitize_text(utterance)
+            key_vals.append(_get_key_val("utterance", utterance))
         if fill:
             key_vals.append(_get_key_val("fill", fill))
-        if align:
-            key_vals.append(_get_key_val("align", align))
-        if padding_top:
-            key_vals.append(_get_key_val("padding_top", padding_top))
-        if padding_left:
-            key_vals.append(_get_key_val("padding_left", padding_left))
-        if font or self.font:
-            f = font if font else self.font
-            key_vals.append(_get_key_val("font", f))
         
         msg = _join_key_vals(key_vals)
         
