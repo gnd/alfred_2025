@@ -1,196 +1,243 @@
 import os
-import subprocess
-import random
+import sys
 import time
+import signal
 import socket
+import random
+import threading
+import subprocess
+from pathlib import Path, os
 from screeninfo import get_monitors
 
-# Configuration
-REEL_WIDTH = 600
-REELS_FOLDER = 'gameplay'
-PORT = 6666
-HOST = 'localhost'
-LOUD = "10"
-KILL_TIMEOUT = 3
-PLAYER = "mplayer"  # Options: 'mplayer' or 'ffplay'
+class GameplaySludge(threading.Thread):
 
-# List of processes
-process_list = []
+    def __init__(self, lil_drama=None):
+        super().__init__(daemon=True)
 
-reel_files = [f for f in os.listdir(REELS_FOLDER) if (f.endswith('sludge.mp4') and f)]
-reel_count = len(reel_files)
-reel_files.sort()
-print(reel_files)
+        # The main app
+        self.lil_drama = lil_drama
 
-if reel_count == 0:
-    print("No reels found in folder.")
-    exit(1)
+        # Threading stuff
+        self.active  = threading.Event()
+        self.stopper = threading.Event()
 
-# Screen dimensions
-monitor = get_monitors()[0]
-screen_width, screen_height = monitor.width, monitor.height
-current_reel_index = 0
-main_vid_fullscreen = True
+        # Signal handling
+        signal.signal(signal.SIGTERM, self.on_exit)
+        signal.signal(signal.SIGINT, self.on_exit)
 
-# Video dimensions
-width_half = int(screen_width / 2)
-width_smaller = int(screen_width / 2.66666)
-height_half = int(screen_height / 2)
+        # Configuration
+        self.reel_width = 600
+        self.reels_folder = (Path(__file__).resolve().parent / "gameplay")
+        self.listen_port = 6667
+        self.listen_host = 'localhost'
+        self.kill_timeout = 3
+        self.loudness = -100
 
-def launch_mainvid(file_path):
-    window_title = f"mplayer_main"
-    
-    cmd = [
-        "mplayer",
-        "-fs",
-        "-xy", f"{screen_width},{screen_height}",
-        "-vo", "x11",
-        "-loop", "0",
-        "-really-quiet",
-        "-noborder",
-        "-nomouseinput",
-        "-hardframedrop",
-        "-double",
-        "-nosub",
-        # more quiet
-        "-af", f"volume=-{LOUD}",
-        "-title",
-        window_title,
-        file_path
-    ]
+        # List of processes
+        self.process_list = []
 
-    print(" ".join(cmd))
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True
-    )
+        # Load all reels
+        self.current_reel_index = 0
+        self.reel_files = [f for f in os.listdir(self.reels_folder) if (f.endswith('sludge.mp4') and f)]
+        self.reel_count = len(self.reel_files)
+        self.reel_files.sort()
+        if self.reel_count == 0:
+            print("[gameplay] No reels found in folder.")
+            exit(1)
 
-    process_list.append(proc)
+        # Get screen dimensions
+        monitor = get_monitors()[0]
+        self.screen_width = monitor.width
+        self.screen_height = monitor.height
+        print(f"[gameplay] width: {self.screen_width}, height: {self.screen_height}")
+        self.main_vid_fullscreen = True
 
-def launch_sidevid(file_path, index, x, y, width, height):
-    window_title = f"mplayer_{index}"
+        # Video dimensions
+        self.width_half = int(self.screen_width / 2)
+        self.width_smaller = int(self.screen_width / 2.66666)
+        self.height_half = int(self.screen_height / 2)
 
-    cmd = [
-        "nice", "-n", "19",
-        "mplayer",
-        "-xy", f"{width},{height}",
-        "-geometry", f"{x}:{y}",
-        "-loop", "0",
-        "-really-quiet",
-        "-noborder",
-        "-nomouseinput",
-        "-hardframedrop",
-        "-double",
-        "-nosub",
-        # more quiet
-        "-af", f"volume=-{LOUD}",
-        "-title",
-        window_title,
-        file_path
-    ]
+        # Launch first vid
+        self.launch_mainvid(os.path.join(self.reels_folder, 'gameplay.mp4'))
 
-    print(" ".join(cmd))
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True
-    )
+    def launch_mainvid(self, file_path):
+        window_title = f"mplayer_main"
+        
+        cmd = [
+            "mplayer",
+            "-fs",
+            "-xy", f"{self.screen_width},{self.screen_height}",
+            "-vo", "x11",
+            "-loop", "0",
+            "-really-quiet",
+            "-noborder",
+            "-nomouseinput",
+            "-hardframedrop",
+            "-double",
+            "-nosub",
+            # more quiet
+            "-af", f"volume=-{self.loudness}",
+            "-title",
+            window_title,
+            file_path
+        ]
 
-    process_list.append(proc)
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True
+        )
 
+        self.process_list.append(proc)
 
-def toggle_fullscreen(title, fullscreen):
-    if (fullscreen):
-        # Remove fullscreen
-        wmctrl_cmd = ["wmctrl", "-r", title, "-b", "remove,fullscreen"]
-        subprocess.run(wmctrl_cmd, check=True)
-    else:
-        # Add fullscreen
-        wmctrl_cmd = ["wmctrl", "-r", title, "-b", "add,fullscreen"]
-        subprocess.run(wmctrl_cmd, check=True)
+    def launch_sidevid(self, file_path, index, x, y, width, height):
+        window_title = f"mplayer_{index}"
 
+        cmd = [
+            "nice", "-n", "19",
+            "mplayer",
+            "-xy", f"{width},{height}",
+            "-geometry", f"{x}:{y}",
+            "-loop", "0",
+            "-really-quiet",
+            "-noborder",
+            "-nomouseinput",
+            "-hardframedrop",
+            "-double",
+            "-nosub",
+            # more quiet
+            "-af", f"volume=-{self.loudness}",
+            "-title",
+            window_title,
+            file_path
+        ]
 
-def move_window(title, x, y, width, height):
-    """
-    Uses wmctrl to move and resize a window by title.
-    """
-    try:
-        # Then make it a bit smaller to make place for other videos
-        wmctrl_cmd = ["wmctrl", "-r", title, "-e", f"0,{x},{y},{width},{height}"]
-        #print(wmctrl_cmd)
-        subprocess.run(wmctrl_cmd, check=True)
-        print(f"Moved and resized '{title}' to {x},{y} ({width}x{height})")
-    except subprocess.CalledProcessError as e:
-        print(f"wmctrl failed: {e}")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+        self.process_list.append(proc)
 
 
-def kill_player(proc):
-    if proc:
+    def toggle_fullscreen(self, title, fullscreen):
+        if (fullscreen):
+            # Remove fullscreen
+            wmctrl_cmd = ["wmctrl", "-r", title, "-b", "remove,fullscreen"]
+            subprocess.run(wmctrl_cmd, check=True)
+        else:
+            # Add fullscreen
+            wmctrl_cmd = ["wmctrl", "-r", title, "-b", "add,fullscreen"]
+            subprocess.run(wmctrl_cmd, check=True)
+
+
+    def move_window(self, title, x, y, width, height):
         try:
-            proc.terminate()
-            proc.wait(timeout=KILL_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        finally:
-            proc = None
+            # Make it a bit smaller to make place for other videos
+            wmctrl_cmd = ["wmctrl", "-r", title, "-e", f"0,{x},{y},{width},{height}"]
+            subprocess.run(wmctrl_cmd, check=True)
+            print(f"[gameplay] Moved and resized '{title}' to {x},{y} ({width}x{height})")
+        except subprocess.CalledProcessError as e:
+            print(f"[gameplay] wmctrl failed: {e}")
+
+    def kill_player(self, proc):
+        if proc:
+            try:
+                proc.terminate()
+                proc.wait(timeout=self.kill_timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            finally:
+                proc = None
+
+    def resume(self):
+        self.active.set()
+
+    def pause(self):
+        self.active.clear()
+
+    def shutdown(self):
+        self.stopper.set()
+        self.active.set()  
+
+    def on_exit(self, signum, frame):
+        print("[gameplay] Cleaning up ...")
+        while self.process_list:
+            self.kill_player(self.process_list.pop())
+        sys.exit(0)
+
+    # Thread entrypoint here
+    def run(self):
+        # endless loop
+        while not self.stopper.is_set():
+            if not self.active.wait(timeout=0.1):
+                continue 
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((self.listen_host, self.listen_port))
+                s.listen()
+                print(f"[gameplay] Ready. Listening on {self.listen_host}:{self.listen_port} ...")
+
+                conn, addr = s.accept()
+                with conn:
+                    print(f"Connected by {addr}")
+                    while True:
+                        data = conn.recv(1024)
+                        if not data:
+                            break
+                        command = data.decode().strip()
+                        if command == 'new':
+                            print("[gameplay] Launching new video.")
+                            match len(self.process_list):
+                                # Second video layer
+                                case 1:
+                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, 0, self.width_smaller, self.screen_height)
+                                    print(f"[gameplay] {len(self.process_list)} videos running..")
+                                # Third video layer
+                                case 2:
+                                    self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
+                                    self.main_vid_fullscreen = not self.main_vid_fullscreen
+                                    self.move_window("mplayer_main", self.width_half, 0, self.width_half, self.screen_height)
+                                    self.move_window("mplayer_0", 0, 0, self.width_half, self.height_half)
+                                    # launch third video
+                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_half, self.width_half, self.height_half)
+                                    print(f"[gameplay] {len(self.process_list)} videos running..")
+                                # All others
+                                case _:
+                                    pos_x = random.randint(0, max(0, self.screen_width - self.reel_width))
+                                    pos_y = random.randint(0, max(0, self.screen_height - 500))
+                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, pos_x, pos_y, self.reel_width, 0)
+                                    print(f"[gameplay] {len(self.process_list)} videos running..")
+                            # increase reel index
+                            self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
+                        if command == 'kill' and self.process_list:
+                            self.kill_player(self.process_list.pop())
+                            if (len(self.process_list) == 1):
+                                self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
+                                self.main_vid_fullscreen = not self.main_vid_fullscreen
+                                self.move_window("mplayer_main", 0, 0, self.screen_width, self.screen_height)
+                            print("[gameplay] Killing last video.")
+                            print(f"[gameplay] {len(self.process_list)} videos left..")
+                        if command == 'killall':
+                            print("[gameplay] Killing all videos.")
+                            while self.process_list:
+                                self.kill_player(self.process_list.pop())
+                            print(f"[gameplay] {len(self.process_list)} videos left..")
 
 
-# Socket server
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    launch_mainvid(os.path.join(REELS_FOLDER, 'gameplay.mp4'))
+# This method is used when started from the command line
+def main():
+    gameplay = GameplaySludge()
+    gameplay.resume()
+    try:
+        gameplay.run()
+    except KeyboardInterrupt:
+        gameplay.shutdown()
 
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen()
-    print(f"Player ready. Listening on {HOST}:{PORT} using {PLAYER}...")
-
-    conn, addr = s.accept()
-    with conn:
-        print(f"Connected by {addr}")
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            command = data.decode().strip()
-            if command == 'new':
-                print("Launching new process.")
-                match len(process_list):
-                    # Second video layer
-                    case 1:
-                        launch_sidevid(os.path.join(REELS_FOLDER, reel_files[current_reel_index]), current_reel_index, 0, 0, width_smaller, screen_height)
-                        print(f"{len(process_list)} processes running..")
-                    # Third video layer
-                    case 2:
-                        toggle_fullscreen("mplayer_main", main_vid_fullscreen)
-                        main_vid_fullscreen = not main_vid_fullscreen
-                        move_window("mplayer_main", width_half, 0, width_half, 1080)
-                        move_window("mplayer_0", 0, 0, width_half, height_half)
-                        # launch third video
-                        launch_sidevid(os.path.join(REELS_FOLDER, reel_files[current_reel_index]), current_reel_index, 0, height_half, width_half, height_half)
-                        print(f"{len(process_list)} processes running..")
-                    # All others
-                    case _:
-                        pos_x = random.randint(0, max(0, screen_width - REEL_WIDTH))
-                        pos_y = random.randint(0, max(0, screen_height - 500))
-                        launch_sidevid(os.path.join(REELS_FOLDER, reel_files[current_reel_index]), current_reel_index, pos_x, pos_y, REEL_WIDTH, 0)
-                        print(f"{len(process_list)} processes running..")
-                # increase reel index
-                current_reel_index = (current_reel_index + 1) % reel_count
-            if command == 'kill' and process_list:
-                kill_player(process_list.pop())
-                if (len(process_list) == 1):
-                    toggle_fullscreen("mplayer_main", main_vid_fullscreen)
-                    main_vid_fullscreen = not main_vid_fullscreen
-                    move_window("mplayer_main", 0, 0, screen_width, screen_height)
-                print("Killing last process.")
-                print(f"{len(process_list)} processes left..")
-            if command == 'killall':
-                print("Killing all processes.")
-                while process_list:
-                    kill_player(process_list.pop())
-                print(f"{len(process_list)} processes left..")
+if __name__ == "__main__":
+    main()

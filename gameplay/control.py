@@ -3,7 +3,7 @@ from pynput import keyboard
 from pynput import mouse 
 
 HOST = 'localhost'
-PORT = 6666
+PORT = 6667
 
 try:
     conn = socket.create_connection((HOST, PORT))
