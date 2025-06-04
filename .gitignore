@@ -1,6 +1,7 @@
 meme_deathmatch/config.ini
 meme_deathmatch/memenv
 meme_deathmatch/downloaded
+meme_deathmatch/__pycache__/
 gameplay/memenv
 gameplay/gameplay
 downloaded_backup_*

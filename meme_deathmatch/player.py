@@ -1,110 +1,162 @@
 import os
-import subprocess
-import random
+import sys
 import time
 import socket
+import signal
+import random
+import threading
+import subprocess
+from pathlib import Path, os
 from screeninfo import get_monitors
 
-# Configuration
-REEL_WIDTH = 300
-REEL_ANOMALY = 100
-REELS_FOLDER = 'downloaded/smol'
-PORT = 6666
-HOST = 'localhost'
-LOUD = "10"
-KILL_TIMEOUT = 3
-PLAYER = "mplayer"  # Options: 'mplayer' or 'ffplay'
+class MemeDeathmatch(threading.Thread):
+    
+    def __init__(self, lil_drama=None):
+        super().__init__(daemon=True)
 
-# List of processes
-process_list = []
+        # The main app
+        self.lil_drama = lil_drama
 
-reel_files = [f for f in os.listdir(REELS_FOLDER) if f.endswith('.mp4')]
-reel_count = len(reel_files)
+        # Threading stuff
+        self.active  = threading.Event()
+        self.stopper = threading.Event()
 
-if reel_count == 0:
-    print("No reels found in folder.")
-    exit(1)
+        # Signal handling
+        signal.signal(signal.SIGTERM, self.on_exit)
+        signal.signal(signal.SIGINT, self.on_exit)
 
-# Screen dimensions
-monitor = get_monitors()[0]
-screen_width, screen_height = monitor.width, monitor.height
+        # Configuration
+        self.reel_width = 300
+        self.reel_anomaly = 100
+        self.reels_folder = (Path(__file__).resolve().parent / "downloaded" / "smol")
+        self.listen_port = 6666
+        self.listen_host = 'localhost'
+        self.loudness = "10"
+        self.kill_timeout = 3
 
-current_reel_index = 0
+        # List of processes
+        self.process_list = []
 
-def launch_player(file_path):
-    random_size = random.randint(0, REEL_ANOMALY) - int(REEL_ANOMALY / 2)
-    actual_reel_width = REEL_WIDTH + random_size
-    random_x = random.randint(0, max(0, screen_width - actual_reel_width))
-    random_y = random.randint(0, max(0, screen_height - 500))
+        # Load all reels
+        self.current_reel_index = 0
+        self.reel_files = [f for f in os.listdir(self.reels_folder) if f.endswith('.mp4')]
+        self.reel_count = len(self.reel_files)
+        if self.reel_count == 0:
+            print("[deathmatch] No reels found in folder.")
+            exit(1)
 
-    cmd = [
-        "nice", "-n", "19",
-        "mplayer",
-        "-xy", str(actual_reel_width),
-        "-geometry", f"{random_x}:{random_y}",
-        "-loop", "0",
-        "-really-quiet",
-        "-noborder",
-        "-nomouseinput",
-        # some stuff to speed up
-        #"-vo", "xv",
-        "-hardframedrop",
-        "-double",
-        "-nosub",
-        # more quiet
-        "-af", f"volume=-{LOUD}",
-        file_path
-    ]
-
-    #print(" ".join(cmd))
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True
-    )
-
-    process_list.append(proc)
+        # Get screen dimensions
+        monitor = get_monitors()[0]
+        self.screen_width = monitor.width
+        self.screen_height = monitor.height
+        print(f"[deathmatch] width: {self.screen_width}, height: {self.screen_height}")
 
 
-def kill_player(proc):
-    if proc:
-        try:
-            proc.terminate()
-            proc.wait(timeout=KILL_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        finally:
-            proc = None
+    def launch_reel(self, file_path):
+        random_size = random.randint(0, self.reel_anomaly) - int(self.reel_anomaly / 2)
+        actual_reel_width = self.reel_width + random_size
+        random_x = random.randint(0, max(0, self.screen_width - actual_reel_width))
+        random_y = random.randint(0, max(0, self.screen_height - 500))
+
+        cmd = [
+            "nice", "-n", "19",
+            "mplayer",
+            "-xy", str(actual_reel_width),
+            "-geometry", f"{random_x}:{random_y}",
+            "-loop", "0",
+            "-really-quiet",
+            "-noborder",
+            "-nomouseinput",
+            # some stuff to speed up
+            #"-vo", "xv",
+            "-hardframedrop",
+            "-double",
+            "-nosub",
+            # more quiet
+            "-af", f"volume=-{self.loudness}",
+            file_path
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+        self.process_list.append(proc)
 
 
-# Socket server
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen()
-    print(f"Player ready. Listening on {HOST}:{PORT} using {PLAYER}...")
+    def kill_reel(self, proc):
+        if proc:
+            try:
+                proc.terminate()
+                proc.wait(timeout=self.kill_timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            finally:
+                proc = None
 
-    conn, addr = s.accept()
-    with conn:
-        print(f"Connected by {addr}")
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            command = data.decode().strip()
-            if command == 'new':
-                print("Launching new process.")
-                current_reel_index = (current_reel_index + 1) % reel_count
-                launch_player(os.path.join(REELS_FOLDER, reel_files[current_reel_index]))
-                print(f"{len(process_list)} processes running..")
-            if command == 'kill' and process_list:
-                kill_player(process_list.pop())
-                print("Killing last process.")
-                print(f"{len(process_list)} processes left..")
-            if command == 'killall':
-                print("Killing all processes.")
-                while process_list:
-                    kill_player(process_list.pop())
-                print(f"{len(process_list)} processes left..")
+    def resume(self):
+        self.active.set()
+
+    def pause(self):
+        self.active.clear()
+
+    def shutdown(self):
+        self.stopper.set()
+        self.active.set()  
+
+    def on_exit(self, signum, frame):
+        print("[deathmatch] Cleaning up ...")
+        while self.process_list:
+            self.kill_reel(self.process_list.pop())
+        sys.exit(0)
+
+    # Thread entrypoint here
+    def run(self):
+        # endless loop
+        while not self.stopper.is_set():
+            if not self.active.wait(timeout=0.1):
+                continue 
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((self.listen_host, self.listen_port))
+                s.listen()
+                print(f"[deathmatch] Ready. Listening on {self.listen_host}:{self.listen_port}")
+
+                conn, addr = s.accept()
+                with conn:
+                    print(f"[deathmatch] Connected by {addr}")
+                    while True:
+                        data = conn.recv(1024)
+                        if not data:
+                            break
+                        command = data.decode().strip()
+                        if command == 'new':
+                            print("[deathmatch] Launching new reel.")
+                            self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
+                            self.launch_reel(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]))
+                            print(f"[deathmatch] {len(self.process_list)} reels running..")
+                        if command == 'kill' and self.process_list:
+                            self.kill_reel(self.process_list.pop())
+                            print("[deathmatch] Killing last reel.")
+                            print(f"[deathmatch] {len(self.process_list)} reels left..")
+                        if command == 'killall':
+                            print("[deathmatch] Killing all reels.")
+                            while self.process_list:
+                                self.kill_reel(self.process_list.pop())
+                            print(f"[deathmatch] {len(self.process_list)} reels left..")
+
+# This method is used when started from the command line
+def main():
+    deathmatch = MemeDeathmatch()
+    deathmatch.resume()
+    try:
+        deathmatch.run()
+    except KeyboardInterrupt:
+        deathmatch.shutdown()
+
+if __name__ == "__main__":
+    main()
