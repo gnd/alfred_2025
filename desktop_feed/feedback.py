@@ -96,15 +96,17 @@ class DesktopFeedback(threading.Thread):
         # endless loop
         while not self.stopper.is_set():
             if not self.active.wait(timeout=0.1):
-                continue            
+                continue  
+            self.frame = (self.frame + 1) % 100    
             self.screenshot = self.make_screenshot()
             self.smaller_shot = pygame.transform.smoothscale(self.screenshot, (1880, 1030))
             self.window.blit(self.smaller_shot, (0, 0))
+            if (self.frame > 95):
+                self.window.fill((30, 0, 0))
             pygame.display.flip()
-
-            self.frame = (self.frame + 1) % 100
+            
             if (self.frame > 50):
-                self.raise_window()
+                self.raise_window()                
 
         pygame.quit()
         print("[tunnel] shutting down")
