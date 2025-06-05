@@ -1,53 +1,56 @@
-import fire
+# stt_loop.py
+import time, subprocess, fire
 from google.cloud import speech
-
 from microphone_stream import MicrophoneStream
 
-# Audio recording parameters
-RATE = 16000
-CHUNK = int(RATE / 10)  # 100ms
+RATE  = 16_000
+CHUNK = RATE // 10           # 100 ms
+MAX_STREAM_SEC = 270         # restart well under Google’s 305 s hard limit
 
-def processMicrophoneStream(speech_lang, responses_cb=None):
-    """Opens a microphone stream, transcribing recorder speech.
-    
-    Speech is transcribed using Google Cloud's Speech-to-text API.
-    This function blocks as long as audio is recorded.
 
-    Args:
-        speech_lang (str): BCP-47 language code of the spoken language.
-        response_cb (func): Function invoked for each response returned
-            by the API. 
-    
-    """
-    
+def _reconnect_chromium():
+    """(Re)link Chromium’s MONO output to the new PyAudio inputs."""
+    # tiny delay lets PipeWire expose the new ports
+    time.sleep(0.25)
+
+    links = (
+        ("Chromium:output_MONO", "ALSA plug-in [python3.12]:input_FL"),
+        ("Chromium:output_MONO", "ALSA plug-in [python3.12]:input_FR"),
+    )
+    for outp, inp in links:
+        subprocess.run(["pw-link", outp, inp], check=False)
+    print("[stt-loop] Reconnecting to Chromium ...")
+
+def processMicrophoneStream(speech_lang: str, responses_cb=None):
+    """Loops forever: open mic → stream to STT → restart just before 5 min."""
     client = speech.SpeechClient()
-    
-    config = speech.RecognitionConfig(
+
+    cfg = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=RATE,
         language_code=speech_lang,
-        # alternative_language_codes=alternative_language_codes - TODO: solve how to call beta API
     )
+    s_cfg = speech.StreamingRecognitionConfig(config=cfg, interim_results=True)
 
-    streaming_config = speech.StreamingRecognitionConfig(
-        config=config, interim_results=True
-    )
+    while True:                         # self-restarting outer loop
+        with MicrophoneStream(RATE, CHUNK) as stream:
+            _reconnect_chromium()       # << relink *after* ports appear
 
-    with MicrophoneStream(RATE, CHUNK) as stream:
-        audio_generator = stream.generator()
-        requests = (
-            speech.StreamingRecognizeRequest(audio_content=content)
-            for content in audio_generator
-        )
+            start = time.time()
+            audio = stream.generator()
 
-        # For response type details, see:
-        # https://googleapis.dev/python/speech/latest/speech_v1/types.html#google.cloud.speech_v1.types.StreamingRecognizeResponse
-        responses = client.streaming_recognize(streaming_config, requests)
+            def req_gen():
+                for chunk in audio:
+                    if time.time() - start > MAX_STREAM_SEC:
+                        break           # cleanly finish this STT call
+                    yield speech.StreamingRecognizeRequest(audio_content=chunk)
 
-        if not responses_cb:
-            print(responses)
-        else:
-            return responses_cb(responses)
+            try:
+                responses = client.streaming_recognize(s_cfg, req_gen())
+                (responses_cb or print)(responses)
+            except Exception as exc:
+                print("[stt] streaming error:", exc)
+                # fall through – outer while reopens everything
 
 
 def main(speech_lang):

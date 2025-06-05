@@ -31,7 +31,7 @@ class GameplaySludge(threading.Thread):
         self.reels_folder = (Path(__file__).resolve().parent / "gameplay")
         self.listen_port = 6667
         self.listen_host = 'localhost'
-        self.kill_timeout = 3
+        self.kill_timeout = 0
         self.loudness = -100
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
@@ -69,9 +69,13 @@ class GameplaySludge(threading.Thread):
         self.main_vid_fullscreen = True
 
         # Video dimensions
-        self.width_half = int(self.screen_width / 2)
         self.width_smaller = int(self.screen_width / 2.66666)
+        self.width_half = int(self.screen_width / 2)
+        self.width_third = int(self.screen_width / 3)
+        self.width_fourth = int(self.screen_width / 4)
         self.height_half = int(self.screen_height / 2)
+        self.height_third = int(self.screen_height / 3)
+        self.height_fourth = int(self.screen_height / 4)
 
         # Launch first vid
         self.launch_mainvid(os.path.join(self.reels_folder, 'gameplay.mp4'))
@@ -163,13 +167,7 @@ class GameplaySludge(threading.Thread):
 
     def kill_player(self, proc):
         if proc:
-            try:
-                proc.terminate()
-                proc.wait(timeout=self.kill_timeout)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-            finally:
-                proc = None
+            proc.kill()
 
     def resume(self):
         self.active.set()
@@ -183,9 +181,9 @@ class GameplaySludge(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[gameplay] Cleaning up ...")
-        self.sock.close()
         while self.process_list:
             self.kill_player(self.process_list.pop())
+        self.sock.close()
         sys.exit(0)
 
     # Thread entrypoint here
@@ -219,10 +217,27 @@ class GameplaySludge(threading.Thread):
                             case 2:
                                 self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
                                 self.main_vid_fullscreen = not self.main_vid_fullscreen
-                                self.move_window("mplayer_main", self.width_half, 0, self.width_half, self.screen_height)
+                                self.move_window("mplayer_main", self.width_half, 0, self.screen_width - self.width_half, self.screen_height)
                                 self.move_window("mplayer_0", 0, 0, self.width_half, self.height_half)
                                 # launch third video
                                 self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_half, self.width_half, self.height_half)
+                                print(f"[gameplay] {len(self.process_list)} videos running..")
+                            # Fourth video layer
+                            case 3:
+                                self.move_window("mplayer_main", self.width_third, 0, self.screen_width - self.width_third, self.screen_height)
+                                self.move_window("mplayer_0", 0, 0, self.width_third, self.height_third)
+                                self.move_window("mplayer_1", 0, self.height_third, self.width_third, self.height_third)
+                                # launch fourth video
+                                self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_third*2, self.width_third, self.height_third)
+                                print(f"[gameplay] {len(self.process_list)} videos running..")
+                            # Fifth video layer
+                            case 4:
+                                self.move_window("mplayer_main", self.width_fourth, 0, self.screen_width - self.width_fourth, self.screen_height)
+                                self.move_window("mplayer_0", 0, 0, self.width_fourth, self.height_fourth)
+                                self.move_window("mplayer_1", 0, self.height_fourth, self.width_fourth, self.height_fourth)
+                                self.move_window("mplayer_2", 0, self.height_fourth*2, self.width_fourth, self.height_fourth)
+                                # launch fourth video
+                                self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_fourth*3, self.width_fourth, self.height_fourth)
                                 print(f"[gameplay] {len(self.process_list)} videos running..")
                             # All others
                             case _:
