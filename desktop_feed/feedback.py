@@ -25,6 +25,7 @@ class DesktopFeedback(threading.Thread):
         self.frame = 0
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
+        self.screen_offset_y = 0
 
         # Get screen dimensions
         if (self.secondary_screen):
@@ -80,6 +81,17 @@ class DesktopFeedback(threading.Thread):
             screenshot = pygame.image.frombuffer(shot.rgb, shot.size, "RGB")
             return screenshot
 
+    def raise_window(self, name="lil_feed"):
+        try:
+            subprocess.run(
+                ["wmctrl", "-a", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            pass
+
     def run(self):
         # endless loop
         while not self.stopper.is_set():
@@ -92,8 +104,7 @@ class DesktopFeedback(threading.Thread):
 
             self.frame = (self.frame + 1) % 100
             if (self.frame > 50):
-                wmctrl_cmd = ["wmctrl", "-a", 'lil_feed']
-                subprocess.run(wmctrl_cmd, check=True)
+                self.raise_window()
 
         pygame.quit()
         print("[tunnel] shutting down")

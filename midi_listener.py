@@ -9,28 +9,52 @@ class MidiListener(threading.Thread):
         self.lil_drama = lil_drama
 
         # Connect to MIDI
-        self.port = mido.open_input(port_name, callback=self._handle)
+        self.inport = mido.open_input(port_name, callback=self._handle)
+        self.outport = mido.open_output(port_name) 
+        self._closed = False
         
         # Various vars
         self.controls = {}
+        self.led_state = {}
+
+    def stop(self):
+        print("[midi] Cleaning up ...")
+        if not self._closed:
+            for note in self.led_state:
+                self._set_led(note, 0)
+            self.inport.close()
+            self.outport.close()
+            self._closed = True
+
+    def _set_led(self, note, state: bool):
+        vel = 127 if state else 0
+        self.outport.send(mido.Message('note_on', note=note, velocity=vel))
 
     def _handle(self, msg):
         if msg.type == 'note_on' and msg.velocity > 0:
             note = msg.note
             if note == 1:
                 self.lil_drama.toggle_deathmatch()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 3:
                 self.lil_drama.deathmatch_kill_all()
             if note == 4:
                 self.lil_drama.toggle_tunnel()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 6:
                 self.lil_drama.gameplay_new_reel()
             if note == 7:
                 self.lil_drama.toggle_gameplay()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 9:
                 self.lil_drama.gameplay_kill_all()
             if note == 22:
                 self.lil_drama.toggle_secondary_screen()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
         if msg.type == 'control_change':
             cc_num  = int(msg.control)
             cc_val  = int(msg.value)
@@ -56,3 +80,4 @@ class MidiListener(threading.Thread):
                 #         if self.lil_drama.gameplay_proc:
                 #             self.lil_drama.gameplay_kill_reel()
                 #         self.controls[cc_num] = int(cc_val/10)
+

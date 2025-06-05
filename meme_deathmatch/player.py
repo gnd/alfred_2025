@@ -37,6 +37,13 @@ class MemeDeathmatch(threading.Thread):
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
 
+        # Socket stuff
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.listen_host, self.listen_port))
+        self.sock.listen()
+        print(f"[deathmatch] Ready on {self.listen_host}:{self.listen_port}")
+
         # List of processes
         self.process_list = []
 
@@ -119,6 +126,7 @@ class MemeDeathmatch(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[deathmatch] Cleaning up ...")
+        self.sock.close()
         while self.process_list:
             self.kill_reel(self.process_list.pop())
         sys.exit(0)
@@ -129,34 +137,34 @@ class MemeDeathmatch(threading.Thread):
         while not self.stopper.is_set():
             if not self.active.wait(timeout=0.1):
                 continue 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                s.bind((self.listen_host, self.listen_port))
-                s.listen()
-                print(f"[deathmatch] Ready. Listening on {self.listen_host}:{self.listen_port}")
-
-                conn, addr = s.accept()
-                with conn:
-                    print(f"[deathmatch] Connected by {addr}")
-                    while True:
-                        data = conn.recv(1024)
-                        if not data:
-                            break
-                        command = data.decode().strip()
-                        if command == 'new':
-                            print("[deathmatch] Launching new reel.")
-                            self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
-                            self.launch_reel(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]))
-                            print(f"[deathmatch] {len(self.process_list)} reels running..")
-                        if command == 'kill' and self.process_list:
+            try:
+                self.sock.settimeout(0.5)
+                conn, addr = self.sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            with conn:
+                print(f"[deathmatch] Connected by {addr}")
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    command = data.decode().strip()
+                    if command == 'new':
+                        print("[deathmatch] Launching new reel.")
+                        self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
+                        self.launch_reel(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]))
+                        print(f"[deathmatch] {len(self.process_list)} reels running..")
+                    if command == 'kill' and self.process_list:
+                        self.kill_reel(self.process_list.pop())
+                        print("[deathmatch] Killing last reel.")
+                        print(f"[deathmatch] {len(self.process_list)} reels left..")
+                    if command == 'killall':
+                        print("[deathmatch] Killing all reels.")
+                        while self.process_list:
                             self.kill_reel(self.process_list.pop())
-                            print("[deathmatch] Killing last reel.")
-                            print(f"[deathmatch] {len(self.process_list)} reels left..")
-                        if command == 'killall':
-                            print("[deathmatch] Killing all reels.")
-                            while self.process_list:
-                                self.kill_reel(self.process_list.pop())
-                            print(f"[deathmatch] {len(self.process_list)} reels left..")
+                        print(f"[deathmatch] {len(self.process_list)} reels left..")
 
 # Start Meme Deathmatch
 def main():

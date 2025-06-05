@@ -36,6 +36,13 @@ class GameplaySludge(threading.Thread):
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
 
+        # Socket stuff
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.listen_host, self.listen_port))
+        self.sock.listen()
+        print(f"[deathmatch] Ready on {self.listen_host}:{self.listen_port}")
+
         # List of processes
         self.process_list = []
 
@@ -176,6 +183,7 @@ class GameplaySludge(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[gameplay] Cleaning up ...")
+        self.sock.close()
         while self.process_list:
             self.kill_player(self.process_list.pop())
         sys.exit(0)
@@ -186,57 +194,57 @@ class GameplaySludge(threading.Thread):
         while not self.stopper.is_set():
             if not self.active.wait(timeout=0.1):
                 continue 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                s.bind((self.listen_host, self.listen_port))
-                s.listen()
-                print(f"[gameplay] Ready. Listening on {self.listen_host}:{self.listen_port} ...")
-
-                conn, addr = s.accept()
-                with conn:
-                    print(f"Connected by {addr}")
-                    while True:
-                        data = conn.recv(1024)
-                        if not data:
-                            break
-                        command = data.decode().strip()
-                        if command == 'new':
-                            print("[gameplay] Launching new video.")
-                            match len(self.process_list):
-                                # Second video layer
-                                case 1:
-                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, 0, self.width_smaller, self.screen_height)
-                                    print(f"[gameplay] {len(self.process_list)} videos running..")
-                                # Third video layer
-                                case 2:
-                                    self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
-                                    self.main_vid_fullscreen = not self.main_vid_fullscreen
-                                    self.move_window("mplayer_main", self.width_half, 0, self.width_half, self.screen_height)
-                                    self.move_window("mplayer_0", 0, 0, self.width_half, self.height_half)
-                                    # launch third video
-                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_half, self.width_half, self.height_half)
-                                    print(f"[gameplay] {len(self.process_list)} videos running..")
-                                # All others
-                                case _:
-                                    pos_x = random.randint(0, max(0, self.screen_width - self.reel_width))
-                                    pos_y = random.randint(0, max(0, self.screen_height - 500))
-                                    self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, pos_x, pos_y, self.reel_width, 0)
-                                    print(f"[gameplay] {len(self.process_list)} videos running..")
-                            # increase reel index
-                            self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
-                        if command == 'kill' and self.process_list:
-                            self.kill_player(self.process_list.pop())
-                            if (len(self.process_list) == 1):
+            try:
+                self.sock.settimeout(0.5)
+                conn, addr = self.sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            with conn:
+                print(f"Connected by {addr}")
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    command = data.decode().strip()
+                    if command == 'new':
+                        print("[gameplay] Launching new video.")
+                        match len(self.process_list):
+                            # Second video layer
+                            case 1:
+                                self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, 0, self.width_smaller, self.screen_height)
+                                print(f"[gameplay] {len(self.process_list)} videos running..")
+                            # Third video layer
+                            case 2:
                                 self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
                                 self.main_vid_fullscreen = not self.main_vid_fullscreen
-                                self.move_window("mplayer_main", 0, 0, self.screen_width, self.screen_height)
-                            print("[gameplay] Killing last video.")
-                            print(f"[gameplay] {len(self.process_list)} videos left..")
-                        if command == 'killall':
-                            print("[gameplay] Killing all videos.")
-                            while self.process_list:
-                                self.kill_player(self.process_list.pop())
-                            print(f"[gameplay] {len(self.process_list)} videos left..")
+                                self.move_window("mplayer_main", self.width_half, 0, self.width_half, self.screen_height)
+                                self.move_window("mplayer_0", 0, 0, self.width_half, self.height_half)
+                                # launch third video
+                                self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, 0, self.height_half, self.width_half, self.height_half)
+                                print(f"[gameplay] {len(self.process_list)} videos running..")
+                            # All others
+                            case _:
+                                pos_x = random.randint(0, max(0, self.screen_width - self.reel_width))
+                                pos_y = random.randint(0, max(0, self.screen_height - 500))
+                                self.launch_sidevid(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]), self.current_reel_index, pos_x, pos_y, self.reel_width, 0)
+                                print(f"[gameplay] {len(self.process_list)} videos running..")
+                        # increase reel index
+                        self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
+                    if command == 'kill' and self.process_list:
+                        self.kill_player(self.process_list.pop())
+                        if (len(self.process_list) == 1):
+                            self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
+                            self.main_vid_fullscreen = not self.main_vid_fullscreen
+                            self.move_window("mplayer_main", 0, 0, self.screen_width, self.screen_height)
+                        print("[gameplay] Killing last video.")
+                        print(f"[gameplay] {len(self.process_list)} videos left..")
+                    if command == 'killall':
+                        print("[gameplay] Killing all videos.")
+                        while self.process_list:
+                            self.kill_player(self.process_list.pop())
+                        print(f"[gameplay] {len(self.process_list)} videos left..")
 
 
 # Start Gameplay Sludge
