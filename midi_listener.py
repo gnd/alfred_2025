@@ -8,22 +8,33 @@ class MidiListener(threading.Thread):
         # The main app
         self.lil_drama = lil_drama
 
-        # Connect to MIDI
-        self.inport = mido.open_input(port_name, callback=self._handle)
-        self.outport = mido.open_output(port_name) 
-        self._closed = False
+        # MIDI ports
+        self.inport = None
+        self.outport = None
         
         # Various vars
         self.controls = {}
         self.led_state = {}
 
+        # Connect to MIDI
+        try:
+            self.inport = mido.open_input(port_name, callback=self._handle)
+            self.outport = mido.open_output(port_name) 
+        except:
+            print("[midi] Warning: Can't open MIDI.")
+        self._closed = False
+        
+
     def stop(self):
         print("[midi] Cleaning up ...")
         if not self._closed:
-            for note in self.led_state:
-                self._set_led(note, 0)
-            self.inport.close()
-            self.outport.close()
+            if self.outport:
+                for note in self.led_state:
+                    self._set_led(note, 0)
+            if self.inport:        
+                self.inport.close()
+            if self.outport:
+                self.outport.close()
             self._closed = True
 
     def _set_led(self, note, state: bool):

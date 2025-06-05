@@ -7,7 +7,8 @@ import socket
 import argparse
 import threading
 import configparser
-from msg_decoder import decode_msg 
+from pathlib import Path
+from .msg_decoder import decode_msg 
 from screeninfo import get_monitors
 from pygame._sdl2 import Window
 
@@ -28,7 +29,8 @@ class SubtitleDisplay(threading.Thread):
         signal.signal(signal.SIGINT, self.on_exit)
 
         # Configuration - load variables from config
-        settings = os.path.join(sys.path[0], 'config.ini')
+        self.work_dir = Path(__file__).resolve().parent
+        settings = os.path.join(self.work_dir, 'config.ini')
         config = configparser.ConfigParser()
         config.read(settings)
 
@@ -67,10 +69,10 @@ class SubtitleDisplay(threading.Thread):
         # Init pygame
         pygame.init()
         self.screen = pygame.display.set_mode((self.screen_width, self.display_height), pygame.NOFRAME|pygame.SRCALPHA)
-        pygame.display.set_window_position((0, self.screen_height - self.display_height))
+        pygame.display.set_window_position((0 + self.screen_offset, self.screen_height - self.display_height))
         window = Window.from_display_module()  
         window.opacity = 0.5
-        self.font = pygame.font.Font(self.font_file, self.font_size)
+        self.font = pygame.font.Font(self.work_dir / self.font_file, self.font_size)
         self.font_fname = pygame.font.get_default_font()
         self.black = (0,0,0)
         self.white = (255,255,255)

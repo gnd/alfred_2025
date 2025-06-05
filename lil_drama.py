@@ -14,6 +14,7 @@ from midi_listener import MidiListener
 from desktop_feed.feedback import DesktopFeedback
 from meme_deathmatch.player import MemeDeathmatch
 from gameplay.player import GameplaySludge
+from realtime_subs.display import SubtitleDisplay
 
 HERE = pathlib.Path(__file__).parent
 
@@ -25,6 +26,7 @@ class lil_drama:
 		self.tunnel_proc = None
 		self.subs_proc = None
 		self.gameplay_proc = None
+		self.subtitle_proc = None
 
 		# Various vars
 		self.host = "127.0.0.1"
@@ -43,6 +45,7 @@ class lil_drama:
 			'r': self.toggle_deathmatch,
 			't': self.toggle_tunnel,
 			'y': self.toggle_gameplay,
+			's': self.toggle_subtitles,
 			'q': self.on_exit
         })
 		self.mouse_listener = mouse.Listener(
@@ -94,6 +97,17 @@ class lil_drama:
 			if self.secondary_screen:
 				cmd.append("--secondary")
 			self.gameplay_proc = subprocess.Popen(cmd, cwd=HERE)
+
+	def toggle_subtitles(self):
+		if self.subtitle_proc and self.subtitle_proc.poll() is None:
+			print("Stopping subtitles ...")
+			self.subtitle_proc.terminate()
+		else:
+			print("Starting subtitles ...")
+			cmd = [sys.executable, "-m", "realtime_subs.display"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.subtitle_proc = subprocess.Popen(cmd, cwd=HERE)
 
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
