@@ -35,6 +35,7 @@ class lil_drama:
 		self.host = "127.0.0.1"
 		self.deathmatch_port = 6666
 		self.gameplay_port = 6667
+		self.tunnel_port = 6668
 		self.secondary_screen = False
 
 		# Keyboard & Mouse listener

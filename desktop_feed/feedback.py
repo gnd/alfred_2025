@@ -4,6 +4,8 @@ import argparse
 import threading
 import subprocess
 import pygame, mss
+import socket
+from pygame._sdl2 import Window
 from screeninfo import get_monitors
 
 class DesktopFeedback(threading.Thread):
@@ -26,10 +28,19 @@ class DesktopFeedback(threading.Thread):
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
         self.screen_offset_y = 0
+        self.opacity = 1.0
+        self.listen_host = 'localhost'
+        self.listen_port = 6668
+
+        # Socket stuff
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.listen_host, self.listen_port))
+        self.sock.listen(5)
 
         # Get screen dimensions
         if (self.secondary_screen):
-            print("[gameplay] Running on secondary screen")
+            print("[tunnel] Running on secondary screen")
             monitor = get_monitors()[1]
             self.screen_offset = get_monitors()[0].width
             self.screen_offset_y = 29
@@ -38,7 +49,7 @@ class DesktopFeedback(threading.Thread):
             self.screen_offset = 0
         self.screen_width = monitor.width
         self.screen_height = monitor.height
-        print(f"width: {self.screen_width}, height: {self.screen_height}")
+        print(f"[tunnel] width: {self.screen_width}, height: {self.screen_height}")
 
         # Init pygame window
         pygame.init()
@@ -53,8 +64,10 @@ class DesktopFeedback(threading.Thread):
         self.smaller_shot = pygame.transform.smoothscale(self.screenshot, (self.screen_width - 40, self.screen_height - 50))
 
         # replace the hidden window with a real one after the capture
-        self.window = pygame.display.set_mode((self.screen_width - 40, self.screen_height - 50), pygame.NOFRAME)
+        self.window = pygame.display.set_mode((self.screen_width - 40, self.screen_height - 50), pygame.NOFRAME|pygame.SRCALPHA)
         pygame.display.set_window_position((20 + self.screen_offset, 0 + self.screen_offset_y))
+        self.sdl_window = Window.from_display_module()  
+        self.sdl_window.opacity = self.opacity
 
         self.window.blit(self.smaller_shot, (0, 0))
         pygame.display.flip()
@@ -68,11 +81,18 @@ class DesktopFeedback(threading.Thread):
         self.stopper.set()
         self.active.set()    
 
+    def on_exit(self, signum, frame):
+        print("[tunnel] Cleaning up ...")
+        pygame.display.quit()
+        pygame.quit()
+        self.sock.close()
+        sys.exit(0)
+
     def make_screenshot(self):
         with mss.mss() as sct:
             if self.secondary_screen:
                 if len(sct.monitors) < 3:
-                    raise RuntimeError("Only one monitor detected!")
+                    raise RuntimeError("[tunnel] Only one monitor detected!")
                 monitor = sct.monitors[2]
             else:
                 monitor = sct.monitors[0]
@@ -101,8 +121,8 @@ class DesktopFeedback(threading.Thread):
             self.screenshot = self.make_screenshot()
             self.smaller_shot = pygame.transform.smoothscale(self.screenshot, (1880, 1030))
             self.window.blit(self.smaller_shot, (0, 0))
-            if (self.frame > 95):
-                self.window.fill((30, 0, 0))
+            # if (self.frame > 95):
+            #     self.window.fill((30, 0, 0))
             pygame.display.flip()
             
             if (self.frame > 50):
