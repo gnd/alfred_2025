@@ -6,6 +6,7 @@ import signal
 import socket
 import argparse
 import threading
+import subprocess
 import configparser
 from pathlib import Path
 from screeninfo import get_monitors
@@ -73,6 +74,7 @@ class SubtitleDisplay(threading.Thread):
 
         # Init pygame
         pygame.init()
+        pygame.display.set_caption('subtitles')
         self.screen = pygame.display.set_mode((self.screen_width, self.display_height), pygame.NOFRAME|pygame.SRCALPHA)
         pygame.display.set_window_position((0 + self.screen_offset, self.screen_height - self.display_height))
         window = Window.from_display_module()  
@@ -86,6 +88,8 @@ class SubtitleDisplay(threading.Thread):
         self.screen.fill(self.black)
         pygame.display.flip()
 
+        # raise the screen
+        self.raise_window()
 
     def resume(self):
         self.active.set()
@@ -99,11 +103,25 @@ class SubtitleDisplay(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[subs-display] Cleaning up ...")
+        pygame.display.quit()
+        pygame.quit()
         self.sock.close()
         sys.exit(0)
 
+    def raise_window(self, name="subtitles"):
+        try:
+            subprocess.run(
+                ["wmctrl", "-a", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            pass
+
     def run(self):
         # endless loop
+        running = True
         while not self.stopper.is_set():
             if not self.active.wait(timeout=0.1):
                 continue 

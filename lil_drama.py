@@ -148,7 +148,7 @@ class lil_drama:
 	def on_exit(self):
 		print("Received command to quit.")
 		if self.midi:
-			print("Terminating MIDI listener ...")
+			print("Stopping MIDI listener ...")
 			self.midi.stop()
 		if self.deathmatch_proc:
 			print("Terminating deathmatch ...")
@@ -159,6 +159,9 @@ class lil_drama:
 		if self.gameplay_proc:
 			print("Killing gameplay ...")
 			self.gameplay_proc.kill()
+		if self.subtitle_proc:
+			print("Terminating subtitles ...")
+			self.subtitle_proc.terminate()
 		print("Quitting ...")
 		sys.exit(0)
 

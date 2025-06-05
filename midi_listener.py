@@ -62,6 +62,10 @@ class MidiListener(threading.Thread):
                 self._set_led(note, self.led_state[note])
             if note == 9:
                 self.lil_drama.gameplay_kill_all()
+            if note == 10:
+                self.lil_drama.toggle_subtitles()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 22:
                 self.lil_drama.toggle_secondary_screen()
                 self.led_state[note] = not self.led_state.get(note, False)

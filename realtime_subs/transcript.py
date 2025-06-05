@@ -8,72 +8,108 @@ import os
 import sys
 import fire
 import time
+import signal
 import socket
 import threading
 import subprocess
 import configparser
-
 from math import floor
-
+from pathlib import Path
 from google.cloud import speech
 from google.cloud import translate_v2 as translate
 
-from stt_loop import processMicrophoneStream
-from utils import pblue, pred, pgreen, pcyan, pyellow, concat, sanitize_translation, elapsed_time, normalize_text
+try:
+    from .stt_loop import processMicrophoneStream
+except:
+    from stt_loop import processMicrophoneStream
+try:
+    from utils import pblue, pred, pgreen, pcyan, pyellow, concat, sanitize_translation, elapsed_time, normalize_text
+except:
+    from .utils import pblue, pred, pgreen, pcyan, pyellow, concat, sanitize_translation, elapsed_time, normalize_text
+try:
+    from display_sender import DisplaySender
+except:
+    from .display_sender import DisplaySender
+try:
+    from display_manager import DisplayManager
+except:
+    from .display_manager import DisplayManager
 
-from display_sender import DisplaySender
-from display_manager import DisplayManager
+class SpeechTranslate(threading.Thread):
+    
+    def __init__(self, lil_drama=None):
+        super().__init__(daemon=True)
 
-# Load variables from config
-settings = os.path.join(sys.path[0], 'config.ini')
-config = configparser.ConfigParser()
-config.read(settings)
+        # The main app
+        self.lil_drama = lil_drama
 
-# Assign config variables
-TRANSCRIPTION_HOST = config.get('display', 'DISPLAY_HOST')
-TRANSCRIPTION_PORT = int(config.get('display', 'DISPLAY_PORT'))
-DEFAULT_PADDING_TOP = config.get('display', 'PADDING_TOP')
-DEFAULT_PADDING_LEFT = config.get('display', 'PADDING_LEFT')
-FONT_FILE = config.get('display', 'FONT')
-MAX_CHARACTERS = config.get('display', 'MAX_CHARACTERS')
-SUB_DURATION = config.get('display', 'SUB_DURATION')
-SUB_REFRESH = config.get('display', 'SUB_REFRESH')
-PAUSE_LENGTH = config.get('display', 'PAUSE_LENGTH')
+        # Threading stuff
+        self.active  = threading.Event()
+        self.stopper = threading.Event()
 
-# Define some language codes
-ORIGIN_LANG = "en-US"
-TARGET_LANG = "cs"
+        # Signal handling
+        signal.signal(signal.SIGTERM, self.on_exit)
+        signal.signal(signal.SIGINT, self.on_exit)
 
-class App:
-    def __init__(self, speech_lang=ORIGIN_LANG, reset_pause=int(PAUSE_LENGTH)):
+        # Configuration - load variables from config
+        self.work_dir = Path(__file__).resolve().parent
+        settings = os.path.join(self.work_dir, 'config.ini')
+        config = configparser.ConfigParser()
+        config.read(settings)
+
+        # Assign config variables
+        self.transcription_host = config.get('display', 'DISPLAY_HOST')
+        self.transcription_port = int(config.get('display', 'DISPLAY_PORT'))
+        self.default_padding_top = config.get('display', 'PADDING_TOP')
+        self.default_padding_left = config.get('display', 'PADDING_LEFT')
+        #self.font_file = config.get('display', 'FONT')
+        self.max_characters = int(config.get('display', 'MAX_CHARACTERS'))
+        self.sub_duration = int(config.get('display', 'SUB_DURATION'))
+        self.sub_refresh = float(config.get('display', 'SUB_REFRESH'))
+        self.pause_length = config.get('display', 'PAUSE_LENGTH')
+
+        # Define some language codes
+        self.origin_lang = "en-US"
+        self.target_lang = "cs"
+
+        # Configuration
         self.text_buffer = ""
         self.prev_text_buffer = ""
         self.text_buffer_window = ""
         self.trans_buffer = ""
         self.trans_buffer_window = ""
         self.window_wiped_flag = False
-        self.max_characters = int(MAX_CHARACTERS)
-        self.sub_duration = int(SUB_DURATION)
-        self.sub_refresh = float(SUB_REFRESH)
-        self.speech_lang = speech_lang
 
         # Display
-        self.display = DisplaySender(TRANSCRIPTION_HOST, TRANSCRIPTION_PORT)
+        self.display = DisplaySender(self.transcription_host, self.transcription_port)
         self.dm = DisplayManager(self, self.display)
         self.last_sent_time = 0
-        self.reset_pause = reset_pause
 
         # Translation client
         self.translate_client = translate.Client()
-        
+
+    def resume(self):
+        self.active.set()
+
+    def pause(self):
+        self.active.clear()
+
+    def shutdown(self):
+        self.stopper.set()
+        self.active.set()  
+
+    def on_exit(self, signum, frame):
+        print("[speech-translate] Cleaning up ...")
+        sys.exit(0)
+
     def run(self):
         while True:
             if self.text_buffer == "":
-                pcyan("Listening :)\n")
+                pcyan("[speech-translate] Listening :)\n")
 
             # Blocks to process audio from the mic. This function continues
             # once the end of the utterance has been recognized.        
-            processMicrophoneStream(self.speech_lang, self.handle_stt_response)
+            processMicrophoneStream(self.origin_lang, self.handle_stt_response)
 
             # translate and display new utterances
             #self.display_translation_async()
@@ -90,7 +126,7 @@ class App:
             if not result.alternatives:
                 continue
 
-            print(f"Alternatives: {result.alternatives[0]}")
+            print(f"[speech-translate] alternatives: {result.alternatives[0]}")
             transcript = result.alternatives[0].transcript
             utterances = self.chop_utterance(self.translate_intermediate(transcript))
             #print(f"Utterances: {utterances}")
@@ -153,10 +189,18 @@ class App:
         return chopped_utterances
 
     def translate_intermediate(self, transcript):
-        translation = self.translate_client.translate(transcript, TARGET_LANG)["translatedText"]
+        translation = self.translate_client.translate(transcript, self.target_lang)["translatedText"]
         translation = sanitize_translation(translation)
         return translation
 
-# Ai Calls
+# Start Speech Translation
+def main():
+    speech_translate = SpeechTranslate()
+    speech_translate.resume()
+    try:
+        speech_translate.run()
+    except KeyboardInterrupt:
+        speech_translate.shutdown()
+
 if __name__ == "__main__":
-    App(speech_lang=ORIGIN_LANG).run()
+    main()
