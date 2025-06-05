@@ -1,4 +1,5 @@
-# pip install pynput pygame-ce mss screeninfo mido python-rtmidi
+# pip install pynput pygame-ce mss screeninfo mido python-rtmidi 
+# pip google-cloud-speech google-cloud-texttospeech google-cloud-translate pyaudio six screeninfo termcolor
 
 import os
 import sys
@@ -15,6 +16,7 @@ from desktop_feed.feedback import DesktopFeedback
 from meme_deathmatch.player import MemeDeathmatch
 from gameplay.player import GameplaySludge
 from realtime_subs.display import SubtitleDisplay
+from realtime_subs.transcript import SpeechTranslate
 
 HERE = pathlib.Path(__file__).parent
 
@@ -27,6 +29,7 @@ class lil_drama:
 		self.subs_proc = None
 		self.gameplay_proc = None
 		self.subtitle_proc = None
+		self.speech_proc = None
 
 		# Various vars
 		self.host = "127.0.0.1"
@@ -36,16 +39,17 @@ class lil_drama:
 
 		# Keyboard & Mouse listener
 		self.key_listener   = keyboard.GlobalHotKeys({
-			'b': self.deathmatch_kill_reel,
-			'n': self.deathmatch_new_reel,
-			'v': self.deathmatch_kill_all,
-			'h': self.gameplay_kill_reel,
-			'j': self.gameplay_new_reel,
-			'g': self.gameplay_kill_all,
-			'r': self.toggle_deathmatch,
-			't': self.toggle_tunnel,
-			'y': self.toggle_gameplay,
-			's': self.toggle_subtitles,
+			# Not needed when using MIDI comntroller
+			# 'b': self.deathmatch_kill_reel,
+			# 'n': self.deathmatch_new_reel,
+			# 'v': self.deathmatch_kill_all,
+			# 'h': self.gameplay_kill_reel,
+			# 'j': self.gameplay_new_reel,
+			# 'g': self.gameplay_kill_all,
+			# 'r': self.toggle_deathmatch,
+			# 't': self.toggle_tunnel,
+			# 'y': self.toggle_gameplay,
+			# 's': self.toggle_subtitles,
 			'q': self.on_exit
         })
 		self.mouse_listener = mouse.Listener(
@@ -56,6 +60,9 @@ class lil_drama:
 		# MIDI listener
 		self.midi = MidiListener(self, port_name="MIDI Mix:MIDI Mix MIDI 1 28:0")
 		self.midi.start()
+
+		# Export Google API key
+		os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "realtime_subs/alfred-2021-0b114e37a462.json"
 
 	def toggle_secondary_screen(self):
 		if self.secondary_screen:
@@ -109,6 +116,15 @@ class lil_drama:
 				cmd.append("--secondary")
 			self.subtitle_proc = subprocess.Popen(cmd, cwd=HERE)
 
+	def toggle_speech(self):
+		if self.speech_proc and self.speech_proc.poll() is None:
+			print("Stopping speech-translate ...")
+			self.speech_proc.terminate()
+		else:
+			print("Starting speech-translate ...")
+			cmd = [sys.executable, "-m", "realtime_subs.transcript"]
+			self.speech_proc = subprocess.Popen(cmd, cwd=HERE)
+
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
 
@@ -128,12 +144,12 @@ class lil_drama:
 		self._send_async(self.gameplay_port, b"killall\n")
 
 	def on_scroll(self, x, y, dx, dy):
-		if   dy > 0: self._send_async(b"new\n")
-		elif dy < 0: self._send_async(b"kill\n")
+		if   dy > 0: self._send_async(self.deathmatch_port, b"new\n")
+		elif dy < 0: self._send_async(self.deathmatch_port, b"kill\n")
 
 	def on_click(self, x, y, button, pressed):
 		if button is mouse.Button.middle and not pressed:
-			self._send_async(b"killall\n")
+			self._send_async(self.deathmatch_port, b"killall\n")
 
 	def _send_async(self, port, payload: bytes):
 		threading.Thread(target=self._send_worker, args=(port, payload), daemon=True).start()
@@ -162,6 +178,9 @@ class lil_drama:
 		if self.subtitle_proc:
 			print("Terminating subtitles ...")
 			self.subtitle_proc.terminate()
+		if self.speech_proc:
+			print("Terminating speech-translate ...")
+			self.speech_proc.terminate()
 		print("Quitting ...")
 		sys.exit(0)
 

@@ -1,5 +1,8 @@
 import time
-from utils import concat
+try:
+    from utils import concat
+except:
+    from .utils import concat
 
 class DisplayManager:
     def __init__(self, app, display):

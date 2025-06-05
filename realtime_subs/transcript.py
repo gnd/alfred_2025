@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-# pip3 install fire openai google-cloud-speech google-cloud-texttospeech google-cloud-translate pyaudio six pygame-ce screeninfo
+# pip3 install google-cloud-speech google-cloud-texttospeech google-cloud-translate pyaudio six pygame-ce screeninfo termcolor
 
 from __future__ import division
 
 import re
 import os
 import sys
-import fire
+#import fire
 import time
 import signal
 import socket
@@ -19,9 +19,9 @@ from google.cloud import speech
 from google.cloud import translate_v2 as translate
 
 try:
-    from .stt_loop import processMicrophoneStream
-except:
     from stt_loop import processMicrophoneStream
+except:
+    from .stt_loop import processMicrophoneStream
 try:
     from utils import pblue, pred, pgreen, pcyan, pyellow, concat, sanitize_translation, elapsed_time, normalize_text
 except:

@@ -1,7 +1,10 @@
 # stt_loop.py
-import time, subprocess, fire
+import time, subprocess
 from google.cloud import speech
-from microphone_stream import MicrophoneStream
+try:
+    from microphone_stream import MicrophoneStream
+except:
+    from .microphone_stream import MicrophoneStream
 
 RATE  = 16_000
 CHUNK = RATE // 10           # 100 ms
@@ -58,4 +61,4 @@ def main(speech_lang):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    main()

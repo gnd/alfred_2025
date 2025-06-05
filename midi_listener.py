@@ -66,6 +66,10 @@ class MidiListener(threading.Thread):
                 self.lil_drama.toggle_subtitles()
                 self.led_state[note] = not self.led_state.get(note, False)
                 self._set_led(note, self.led_state[note])
+            if note == 13:
+                self.lil_drama.toggle_speech()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 22:
                 self.lil_drama.toggle_secondary_screen()
                 self.led_state[note] = not self.led_state.get(note, False)

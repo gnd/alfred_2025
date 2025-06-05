@@ -1,5 +1,8 @@
 import socket
-from utils import pred
+try:
+    from utils import pred
+except:
+    from .utils import pred
 
 class DisplaySender:
     def __init__(self, host, port):
