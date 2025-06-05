@@ -8,9 +8,14 @@ import argparse
 import threading
 import configparser
 from pathlib import Path
-from .msg_decoder import decode_msg 
 from screeninfo import get_monitors
 from pygame._sdl2 import Window
+
+# hack to be able to run subs directly
+try:
+    from .msg_decoder import decode_msg 
+except:
+    from msg_decoder import decode_msg 
 
 class SubtitleDisplay(threading.Thread):
     
