@@ -4,6 +4,7 @@ import time
 import signal
 import socket
 import random
+import argparse
 import threading
 import subprocess
 from pathlib import Path, os
@@ -11,7 +12,7 @@ from screeninfo import get_monitors
 
 class GameplaySludge(threading.Thread):
 
-    def __init__(self, lil_drama=None):
+    def __init__(self, lil_drama=None, secondary_screen=False):
         super().__init__(daemon=True)
 
         # The main app
@@ -32,6 +33,8 @@ class GameplaySludge(threading.Thread):
         self.listen_host = 'localhost'
         self.kill_timeout = 3
         self.loudness = -100
+        self.secondary_screen = secondary_screen
+        self.screen_offset = 0
 
         # List of processes
         self.process_list = []
@@ -46,7 +49,13 @@ class GameplaySludge(threading.Thread):
             exit(1)
 
         # Get screen dimensions
-        monitor = get_monitors()[0]
+        if (self.secondary_screen):
+            print("[gameplay] Running on secondary screen")
+            monitor = get_monitors()[1]
+            self.screen_offset = get_monitors()[0].width
+        else:
+            monitor = get_monitors()[0]
+            self.screen_offset = 0
         self.screen_width = monitor.width
         self.screen_height = monitor.height
         print(f"[gameplay] width: {self.screen_width}, height: {self.screen_height}")
@@ -65,8 +74,8 @@ class GameplaySludge(threading.Thread):
         
         cmd = [
             "mplayer",
-            "-fs",
             "-xy", f"{self.screen_width},{self.screen_height}",
+            "-geometry", f"{self.screen_offset}:0",
             "-vo", "x11",
             "-loop", "0",
             "-really-quiet",
@@ -99,7 +108,7 @@ class GameplaySludge(threading.Thread):
             "nice", "-n", "19",
             "mplayer",
             "-xy", f"{width},{height}",
-            "-geometry", f"{x}:{y}",
+            "-geometry", f"{x+self.screen_offset}:{y}",
             "-loop", "0",
             "-really-quiet",
             "-noborder",
@@ -139,9 +148,9 @@ class GameplaySludge(threading.Thread):
     def move_window(self, title, x, y, width, height):
         try:
             # Make it a bit smaller to make place for other videos
-            wmctrl_cmd = ["wmctrl", "-r", title, "-e", f"0,{x},{y},{width},{height}"]
+            wmctrl_cmd = ["wmctrl", "-r", title, "-e", f"0,{x+self.screen_offset},{y},{width},{height}"]
             subprocess.run(wmctrl_cmd, check=True)
-            print(f"[gameplay] Moved and resized '{title}' to {x},{y} ({width}x{height})")
+            print(f"[gameplay] Moved and resized '{title}' to {x+self.screen_offset},{y} ({width}x{height})")
         except subprocess.CalledProcessError as e:
             print(f"[gameplay] wmctrl failed: {e}")
 
@@ -230,9 +239,13 @@ class GameplaySludge(threading.Thread):
                             print(f"[gameplay] {len(self.process_list)} videos left..")
 
 
-# This method is used when started from the command line
+# Start Gameplay Sludge
 def main():
-    gameplay = GameplaySludge()
+    # Parse some arguments
+    p = argparse.ArgumentParser()
+    p.add_argument("--secondary", action="store_true", help="Run on the secondary screen")
+    args = p.parse_args()
+    gameplay = GameplaySludge(secondary_screen=args.secondary)
     gameplay.resume()
     try:
         gameplay.run()

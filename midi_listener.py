@@ -29,6 +29,8 @@ class MidiListener(threading.Thread):
                 self.lil_drama.toggle_gameplay()
             if note == 9:
                 self.lil_drama.gameplay_kill_all()
+            if note == 22:
+                self.lil_drama.toggle_secondary_screen()
         if msg.type == 'control_change':
             cc_num  = int(msg.control)
             cc_val  = int(msg.value)

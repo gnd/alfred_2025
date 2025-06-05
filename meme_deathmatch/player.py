@@ -4,6 +4,7 @@ import time
 import socket
 import signal
 import random
+import argparse
 import threading
 import subprocess
 from pathlib import Path, os
@@ -11,7 +12,7 @@ from screeninfo import get_monitors
 
 class MemeDeathmatch(threading.Thread):
     
-    def __init__(self, lil_drama=None):
+    def __init__(self, lil_drama=None, secondary_screen=False):
         super().__init__(daemon=True)
 
         # The main app
@@ -33,6 +34,8 @@ class MemeDeathmatch(threading.Thread):
         self.listen_host = 'localhost'
         self.loudness = "10"
         self.kill_timeout = 3
+        self.secondary_screen = secondary_screen
+        self.screen_offset = 0
 
         # List of processes
         self.process_list = []
@@ -46,7 +49,13 @@ class MemeDeathmatch(threading.Thread):
             exit(1)
 
         # Get screen dimensions
-        monitor = get_monitors()[0]
+        if (self.secondary_screen):
+            print("[gameplay] Running on secondary screen")
+            monitor = get_monitors()[1]
+            self.screen_offset = get_monitors()[0].width
+        else:
+            monitor = get_monitors()[0]
+            self.screen_offset = 0
         self.screen_width = monitor.width
         self.screen_height = monitor.height
         print(f"[deathmatch] width: {self.screen_width}, height: {self.screen_height}")
@@ -62,7 +71,7 @@ class MemeDeathmatch(threading.Thread):
             "nice", "-n", "19",
             "mplayer",
             "-xy", str(actual_reel_width),
-            "-geometry", f"{random_x}:{random_y}",
+            "-geometry", f"{random_x+self.screen_offset}:{random_y}",
             "-loop", "0",
             "-really-quiet",
             "-noborder",
@@ -149,9 +158,13 @@ class MemeDeathmatch(threading.Thread):
                                 self.kill_reel(self.process_list.pop())
                             print(f"[deathmatch] {len(self.process_list)} reels left..")
 
-# This method is used when started from the command line
+# Start Meme Deathmatch
 def main():
-    deathmatch = MemeDeathmatch()
+    # Parse some arguments
+    p = argparse.ArgumentParser()
+    p.add_argument("--secondary", action="store_true", help="Run on the secondary screen")
+    args = p.parse_args()
+    deathmatch = MemeDeathmatch(secondary_screen=args.secondary)
     deathmatch.resume()
     try:
         deathmatch.run()

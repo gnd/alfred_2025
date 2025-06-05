@@ -30,6 +30,7 @@ class lil_drama:
 		self.host = "127.0.0.1"
 		self.deathmatch_port = 6666
 		self.gameplay_port = 6667
+		self.secondary_screen = False
 
 		# Keyboard & Mouse listener
 		self.key_listener   = keyboard.GlobalHotKeys({
@@ -53,13 +54,24 @@ class lil_drama:
 		self.midi = MidiListener(self, port_name="MIDI Mix:MIDI Mix MIDI 1 28:0")
 		self.midi.start()
 
+	def toggle_secondary_screen(self):
+		if self.secondary_screen:
+			print("Disabling secondary screen")
+			self.secondary_screen = False
+		else:
+			print("Enabling secondary screen")
+			self.secondary_screen = True
+
 	def toggle_deathmatch(self):
 		if self.deathmatch_proc and self.deathmatch_proc.poll() is None:
 			print("Stopping deathmatch ...")
 			self.deathmatch_proc.terminate()
 		else:
 			print("Starting deathmatch ...")
-			self.deathmatch_proc = subprocess.Popen([sys.executable, "-m", "meme_deathmatch.player"], cwd=HERE)
+			cmd = [sys.executable, "-m", "meme_deathmatch.player"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.deathmatch_proc = subprocess.Popen(cmd, cwd=HERE)
 
 	def toggle_tunnel(self):
 		if self.tunnel_proc and self.tunnel_proc.poll() is None:
@@ -67,7 +79,10 @@ class lil_drama:
 			self.tunnel_proc.kill()
 		else:
 			print("Starting tunnel ...")
-			self.tunnel_proc = subprocess.Popen([sys.executable, "-m", "desktop_feed.feedback"], cwd=HERE)
+			cmd = [sys.executable, "-m", "desktop_feed.feedback"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.tunnel_proc = subprocess.Popen(cmd, cwd=HERE)
 
 	def toggle_gameplay(self):
 		if self.gameplay_proc and self.gameplay_proc.poll() is None:
@@ -75,7 +90,10 @@ class lil_drama:
 			self.gameplay_proc.terminate()
 		else:
 			print("Starting gameplay ...")
-			self.gameplay_proc = subprocess.Popen([sys.executable, "-m", "gameplay.player"], cwd=HERE)
+			cmd = [sys.executable, "-m", "gameplay.player"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.gameplay_proc = subprocess.Popen(cmd, cwd=HERE)
 
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
