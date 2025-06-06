@@ -70,6 +70,14 @@ class MidiListener(threading.Thread):
                 self.lil_drama.toggle_speech()
                 self.led_state[note] = not self.led_state.get(note, False)
                 self._set_led(note, self.led_state[note])
+            if note == 16:
+                self.lil_drama.toggle_character_ai()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
+            if note == 19:
+                self.lil_drama.toggle_wheelofnames()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
             if note == 22:
                 self.lil_drama.toggle_secondary_screen()
                 self.led_state[note] = not self.led_state.get(note, False)

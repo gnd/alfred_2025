@@ -9,6 +9,7 @@ import pathlib
 import threading
 import subprocess
 from pynput import keyboard, mouse
+from screeninfo import get_monitors
 
 # import submodules
 from midi_listener import MidiListener
@@ -30,6 +31,8 @@ class lil_drama:
 		self.gameplay_proc = None
 		self.subtitle_proc = None
 		self.speech_proc = None
+		self.ai_proc = None
+		self.wheel_proc = None
 
 		# Various vars
 		self.host = "127.0.0.1"
@@ -58,6 +61,12 @@ class lil_drama:
 			on_click =self.on_click,
 		)
 
+		# Get screen dimensions
+		monitor = get_monitors()[0]
+		self.screen_offset = 0
+		self.screen_width = monitor.width
+		self.screen_height = monitor.height
+
 		# MIDI listener
 		self.midi = MidiListener(self, port_name="MIDI Mix:MIDI Mix MIDI 1 28:0")
 		self.midi.start()
@@ -69,9 +78,18 @@ class lil_drama:
 		if self.secondary_screen:
 			print("Disabling secondary screen")
 			self.secondary_screen = False
+			monitor = get_monitors()[0]
+			self.screen_offset = 0
+			self.screen_width = monitor.width
+			self.screen_height = monitor.height
 		else:
 			print("Enabling secondary screen")
 			self.secondary_screen = True
+			monitor = get_monitors()[1]
+			self.screen_offset = get_monitors()[0].width
+			self.screen_width = monitor.width
+			self.screen_height = monitor.height
+		print(f"width: {self.screen_width}, height: {self.screen_height}")
 
 	def toggle_deathmatch(self):
 		if self.deathmatch_proc and self.deathmatch_proc.poll() is None:
@@ -126,6 +144,22 @@ class lil_drama:
 			cmd = [sys.executable, "-m", "realtime_subs.transcript"]
 			self.speech_proc = subprocess.Popen(cmd, cwd=HERE)
 
+	def toggle_character_ai(self):
+		if self.ai_proc and self.ai_proc.poll() is None:
+			print("Stopping character.ai ...")
+			self.ai_proc.terminate()
+		else:
+			print("Starting character.ai ...")
+			self.ai_proc = self.start_chrome("https://character.ai", self.screen_width, 780, self.screen_offset)
+		
+	def toggle_wheelofnames(self):
+		if self.wheel_proc and self.wheel_proc.poll() is None:
+			print("Stopping Wheel Of Names ...")
+			self.wheel_proc.terminate()
+		else:
+			print("Starting Wheel Of Names ...")
+			self.wheel_proc = self.start_chrome("https://wheelofnames.com", self.screen_width, self.screen_height, self.screen_offset)
+
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
 
@@ -161,6 +195,20 @@ class lil_drama:
 				sock.sendall(payload)
 		except OSError as err:
 			print(f"Connection failed: {err}")
+
+	def start_chrome(self, url, width, height, offset):
+		chromium = "/snap/bin/chromium"
+		cmd = [
+    		chromium,
+		    f"--app={url}",
+		    f"--window-size={width},{height}",
+		    f"--window-position={offset},0",
+		    "--disable-translate",
+		    "--disable-infobars",
+		    "--disable-features=TranslateUI",
+		    "--no-first-run"
+		]
+		return subprocess.Popen(cmd)
 
 	def on_exit(self):
 		print("Received command to quit.")

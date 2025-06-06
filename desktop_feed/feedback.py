@@ -28,7 +28,7 @@ class DesktopFeedback(threading.Thread):
         self.secondary_screen = secondary_screen
         self.screen_offset = 0
         self.screen_offset_y = 0
-        self.opacity = 1.0
+        self.opacity = 0.0
         self.listen_host = 'localhost'
         self.listen_port = 6668
 
@@ -117,7 +117,10 @@ class DesktopFeedback(threading.Thread):
         while not self.stopper.is_set():
             if not self.active.wait(timeout=0.1):
                 continue  
-            self.frame = (self.frame + 1) % 100    
+            self.frame = (self.frame + 1) % 100
+            if (self.opacity < 0.95):
+                self.opacity = self.opacity + 0.01
+            self.sdl_window.opacity = self.opacity
             self.screenshot = self.make_screenshot()
             self.smaller_shot = pygame.transform.smoothscale(self.screenshot, (1880, 1030))
             self.window.blit(self.smaller_shot, (0, 0))

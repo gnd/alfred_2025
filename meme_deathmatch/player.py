@@ -71,14 +71,16 @@ class MemeDeathmatch(threading.Thread):
     def launch_reel(self, file_path):
         random_size = random.randint(0, self.reel_anomaly) - int(self.reel_anomaly / 2)
         actual_reel_width = self.reel_width + random_size
-        random_x = random.randint(0, max(0, self.screen_width - actual_reel_width))
-        random_y = random.randint(0, max(0, self.screen_height - 500))
+        random_x = random.randint(0, max(0, self.screen_width - actual_reel_width)) - 100
+        random_y = random.randint(0, max(0, self.screen_height - 200)) - 100
 
         cmd = [
             "nice", "-n", "19",
             "mplayer",
+            "-fixed-vo",
             "-xy", str(actual_reel_width),
-            "-geometry", f"{random_x+self.screen_offset}:{random_y}",
+            #"-geometry", f"{random_x+self.screen_offset}:{random_y}",
+            "-geometry", f"+{random_x+self.screen_offset}+{random_y}",
             "-loop", "0",
             "-really-quiet",
             "-noborder",
