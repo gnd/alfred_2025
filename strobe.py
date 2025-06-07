@@ -2,20 +2,37 @@
 import mido 
 import time
 import pygame
+import select
+import socket
+import argparse
+import threading
+from pygame._sdl2 import Window
 from screeninfo import get_monitors
 
 # import submodules
 from midi_listener import MidiListener
 
 
-class Strobe():
-    def __init__(self):
+class Strobe(threading.Thread):
+    def __init__(self, lil_drama=None, secondary_screen=False):
+        super().__init__(daemon=True)
+
+        # The main app
+        self.lil_drama = lil_drama
+
+        # Threading stuff
+        self.active  = threading.Event()  # cleared = paused
+        self.stopper = threading.Event()  # set = terminate thread
+
         # Some configuration
+        self.listen_host = 'localhost'
+        self.listen_port = 6669
         self.secondary_screen = False
         self.strobe = True
         self.screen_offset = 0
         self.screen_width = 0
         self.screen_height = 0
+        self.opacity = 0.5
         self.freq = 5
 
         # Get screen dimensions
@@ -32,11 +49,12 @@ class Strobe():
             self.screen_height = monitor.height
         print(f"[strobe] width: {self.screen_width}, height: {self.screen_height}")
 
-
         # Create screen
         pygame.init()
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.NOFRAME)
         pygame.display.set_window_position((0 + self.screen_offset, 0))
+        self.sdl_window = Window.from_display_module()  
+        self.sdl_window.opacity = self.opacity
         self.clock = pygame.time.Clock()
 
         self.BLACK = (0, 0, 0)
@@ -68,28 +86,54 @@ class Strobe():
         if freq > 0:
             self.freq = freq
 
+    def adjust_strobe_opacity(self, opacity):
+        self.opacity = opacity
+        self.sdl_window.opacity = self.opacity
+
+    def pause(self):
+        self.active.clear()
+
+    def resume(self):
+        self.active.set()
+
+    def shutdown(self):
+        self.stopper.set()
+        self.active.set()    
+
+    def on_exit(self, signum, frame):
+        print("[strobe] Cleaning up ...")
+
+        pygame.display.quit()
+        pygame.quit()
+        sys.exit(0)
+
     def run(self):
         last_switch = pygame.time.get_ticks()
-        while True:
-            if self.strobe:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
 
-                now = pygame.time.get_ticks()
-                self.TOGGLE_MS = 1000 / self.freq
-                if now - last_switch >= self.TOGGLE_MS:
-                    
-                    self.screen.fill(self.WHITE)
-                    pygame.display.flip()
-                    time.sleep(0.01)
-                    self.screen.fill(self.BLACK)
-                    pygame.display.flip()
-                    last_switch = now
+        while self.strobe:
+            now         = pygame.time.get_ticks()
+            toggle_ms   = 1000 / self.freq                 # period per half-cycle
 
-                
-                self.clock.tick(240)  # keep the loop fast enough for precise timing
+            if now - last_switch >= toggle_ms:
+                self.screen.fill(self.WHITE)
+                pygame.display.flip()
+                time.sleep(0.01)                           # optional flash length
+                self.screen.fill(self.BLACK)
+                pygame.display.flip()
+                last_switch = now
 
-# Strobe
+# Start Strobe
+def main():
+    # Parse some arguments
+    p = argparse.ArgumentParser()
+    p.add_argument("--secondary", action="store_true", help="Run on the secondary screen")
+    args = p.parse_args()
+    strobe = Strobe(secondary_screen=args.secondary)
+    strobe.resume()
+    try:
+        strobe.run()
+    except KeyboardInterrupt:
+        strobe.shutdown()
+
 if __name__ == "__main__":
-    Strobe().run()
+    main()

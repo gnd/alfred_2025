@@ -83,14 +83,12 @@ class MidiListener(threading.Thread):
                 self.led_state[note] = not self.led_state.get(note, False)
                 self._set_led(note, self.led_state[note])
             if note == 24:
-                print("[midi] Toggle strobe")
                 self.lil_drama.toggle_strobe()
                 self.led_state[note] = not self.led_state.get(note, False)
                 self._set_led(note, self.led_state[note])
         if msg.type == 'control_change':
             cc_num  = int(msg.control)
             cc_val  = int(msg.value)
-            print(f"cnt change: {cc_num} {cc_val}")
             if (cc_num not in self.controls):
                 self.controls[cc_num] = 0
             else:
@@ -104,15 +102,6 @@ class MidiListener(threading.Thread):
                             self.lil_drama.deathmatch_kill_reel()
                         self.controls[cc_num] = cc_val
                 if cc_num == 60:
-                    print("[midi] Strobe: {cc_val/10}")
                     self.lil_drama.adjust_strobe_freq(cc_val/10)
-                # if cc_num == 27:
-                #     if (int(cc_val/10) >= self.controls[cc_num]):
-                #         if self.lil_drama.gameplay_proc:
-                #             self.lil_drama.gameplay_new_reel()
-                #         self.controls[cc_num] = int(cc_val/10)
-                #     else:
-                #         if self.lil_drama.gameplay_proc:
-                #             self.lil_drama.gameplay_kill_reel()
-                #         self.controls[cc_num] = int(cc_val/10)
-
+                if cc_num == 59:
+                    self.lil_drama.adjust_strobe_opacity(cc_val/127)

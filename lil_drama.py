@@ -4,10 +4,13 @@
 import os
 import sys
 import mido
+import time
+import queue
 import signal
 import socket
 import pygame
 import pathlib
+import itertools
 import threading
 import subprocess
 from pynput import keyboard, mouse
@@ -20,6 +23,7 @@ from meme_deathmatch.player import MemeDeathmatch
 from gameplay.player import GameplaySludge
 from realtime_subs.display import SubtitleDisplay
 from realtime_subs.transcript import SpeechTranslate
+from strobe import Strobe
 
 HERE = pathlib.Path(__file__).parent
 
@@ -35,6 +39,7 @@ class lil_drama:
 		self.speech_proc = None
 		self.ai_proc = None
 		self.wheel_proc = None
+		self.strobe_proc = None
 
 		# Various vars
 		self.host = "127.0.0.1"
@@ -42,7 +47,7 @@ class lil_drama:
 		self.gameplay_port = 6667
 		self.tunnel_port = 6668
 		self.secondary_screen = False
-
+		
 		# Keyboard & Mouse listener
 		self.key_listener   = keyboard.GlobalHotKeys({
 			# Not needed when using MIDI comntroller
@@ -173,6 +178,17 @@ class lil_drama:
 			print("Starting Wheel Of Names ...")
 			self.wheel_proc = self.start_chrome("https://wheelofnames.com", self.screen_width, self.screen_height, self.screen_offset)
 
+	def toggle_strobe(self):
+		if self.strobe_proc and self.strobe_proc.poll() is None:
+			print("Stopping strobe ...")
+			self.strobe_proc.terminate()
+		else:
+			print("Starting strobe ...")
+			cmd = [sys.executable, "-m", "strobe"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.strobe_proc = subprocess.Popen(cmd, cwd=HERE)
+
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
 
@@ -190,6 +206,10 @@ class lil_drama:
 
 	def gameplay_kill_all(self):
 		self._send_async(self.gameplay_port, b"killall\n")
+
+	def strobe_freq(self, freq):
+		freq_string = f"freq={freq}\n"
+		self._send_async(self.strobe_port, b"freq\n")
 
 	def on_scroll(self, x, y, dx, dy):
 		if   dy > 0: self._send_async(self.deathmatch_port, b"new\n")
@@ -243,15 +263,20 @@ class lil_drama:
 		if self.speech_proc:
 			print("Terminating speech-translate ...")
 			self.speech_proc.terminate()
+		if self.strobe_proc:
+			print("Terminating strobe ...")
+			self.strobe_proc.terminate()
 		print("Quitting ...")
 		sys.exit(0)
 
 	def run(self):
 		self.key_listener.start()
 		self.mouse_listener.start()
+
 		try:
 			self.key_listener.join()
 		finally:
+			# orderly shutdown
 			self.mouse_listener.stop()
 
 # Lil Drama
