@@ -102,7 +102,8 @@ class Strobe(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[strobe] Cleaning up ...")
-
+        self.strobe = False
+        self.midi.stop()
         pygame.display.quit()
         pygame.quit()
         sys.exit(0)

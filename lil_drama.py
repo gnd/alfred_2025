@@ -207,10 +207,6 @@ class lil_drama:
 	def gameplay_kill_all(self):
 		self._send_async(self.gameplay_port, b"killall\n")
 
-	def strobe_freq(self, freq):
-		freq_string = f"freq={freq}\n"
-		self._send_async(self.strobe_port, b"freq\n")
-
 	def on_scroll(self, x, y, dx, dy):
 		if   dy > 0: self._send_async(self.deathmatch_port, b"new\n")
 		elif dy < 0: self._send_async(self.deathmatch_port, b"kill\n")
