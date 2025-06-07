@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import random
 import socket
 import signal
 import random
@@ -50,6 +51,7 @@ class MemeDeathmatch(threading.Thread):
         # Load all reels
         self.current_reel_index = 0
         self.reel_files = [f for f in os.listdir(self.reels_folder) if f.endswith('.mp4')]
+        random.shuffle(self.reel_files)
         self.reel_count = len(self.reel_files)
         if self.reel_count == 0:
             print("[deathmatch] No reels found in folder.")
@@ -154,10 +156,13 @@ class MemeDeathmatch(threading.Thread):
                         break
                     command = data.decode().strip()
                     if command == 'new':
-                        print("[deathmatch] Launching new reel.")
-                        self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
-                        self.launch_reel(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]))
-                        print(f"[deathmatch] {len(self.process_list)} reels running..")
+                        if (len(self.process_list) < self.max_reels):
+                            print("[deathmatch] Launching new reel.")
+                            self.current_reel_index = (self.current_reel_index + 1) % self.reel_count
+                            self.launch_reel(os.path.join(self.reels_folder, self.reel_files[self.current_reel_index]))
+                            print(f"[deathmatch] {len(self.process_list)} reels running..")
+                        else:
+                            print(f"[deathmatch] Max reels running: ({len(self.process_list)})")
                     if command == 'kill' and self.process_list:
                         self.kill_reel(self.process_list.pop())
                         print("[deathmatch] Killing last reel.")
