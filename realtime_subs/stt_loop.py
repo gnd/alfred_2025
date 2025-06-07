@@ -12,13 +12,15 @@ MAX_STREAM_SEC = 270         # restart well under Google’s 305 s hard limit
 
 
 def _reconnect_chromium():
-    """(Re)link Chromium’s MONO output to the new PyAudio inputs."""
+    """(Re)link Chromium’s output to the new PyAudio inputs."""
     # tiny delay lets PipeWire expose the new ports
     time.sleep(0.25)
 
     links = (
         ("Chromium:output_MONO", "ALSA plug-in [python3.12]:input_FL"),
         ("Chromium:output_MONO", "ALSA plug-in [python3.12]:input_FR"),
+        ("Chromium:output_FL", "ALSA plug-in [python3.12]:input_FL"),
+        ("Chromium:output_FR", "ALSA plug-in [python3.12]:input_FR"),
     )
     for outp, inp in links:
         subprocess.run(["pw-link", outp, inp], check=False)

@@ -3,6 +3,7 @@
 
 import os
 import sys
+import mido
 import signal
 import socket
 import pathlib
@@ -68,12 +69,23 @@ class lil_drama:
 		self.screen_height = monitor.height
 
 		# MIDI listener
-		self.midi = MidiListener(self, port_name="MIDI Mix:MIDI Mix MIDI 1 28:0")
+		port_name = self.open_default_port()
+		print(f"Opening {port_name}")
+		self.midi = MidiListener(self, port_name)
 		self.midi.start()
 
 		# Export Google API key
 		os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "realtime_subs/alfred-2021-0b114e37a462.json"
 
+	def open_default_port(self):
+	    """Pick the first available MIDI‑IN port (quick & dirty)."""
+	    names = mido.get_input_names()
+	    if not names:
+	        sys.exit("No MIDI input ports detected.")
+	    for name in names:
+	    	if "MIDI Mix" in name:
+	    		return name
+	    
 	def toggle_secondary_screen(self):
 		if self.secondary_screen:
 			print("Disabling secondary screen")
