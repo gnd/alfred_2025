@@ -6,6 +6,7 @@ import sys
 import mido
 import signal
 import socket
+import pygame
 import pathlib
 import threading
 import subprocess
