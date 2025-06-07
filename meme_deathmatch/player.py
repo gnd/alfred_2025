@@ -28,6 +28,7 @@ class MemeDeathmatch(threading.Thread):
         signal.signal(signal.SIGINT, self.on_exit)
 
         # Configuration
+        self.max_reels = 60
         self.reel_width = 300
         self.reel_anomaly = 100
         self.reels_folder = (Path(__file__).resolve().parent / "downloaded" / "smol")
