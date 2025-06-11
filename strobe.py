@@ -27,12 +27,13 @@ class Strobe(threading.Thread):
         # Some configuration
         self.listen_host = 'localhost'
         self.listen_port = 6669
-        self.secondary_screen = False
+        self.secondary_screen = True
         self.strobe = True
         self.screen_offset = 0
         self.screen_width = 0
         self.screen_height = 0
-        self.opacity = 0.5
+        self.opacity = 1
+        self.greenblue = 0
         self.freq = 5
 
         # Get screen dimensions
@@ -90,6 +91,9 @@ class Strobe(threading.Thread):
         self.opacity = opacity
         self.sdl_window.opacity = self.opacity
 
+    def adjust_greenblue(self, greenblue):
+        self.greenblue = greenblue
+
     def pause(self):
         self.active.clear()
 
@@ -112,11 +116,11 @@ class Strobe(threading.Thread):
         last_switch = pygame.time.get_ticks()
 
         while self.strobe:
-            now         = pygame.time.get_ticks()
-            toggle_ms   = 1000 / self.freq                 # period per half-cycle
+            now = pygame.time.get_ticks()
+            toggle_ms = 1000 / self.freq                 # period per half-cycle
 
             if now - last_switch >= toggle_ms:
-                self.screen.fill(self.WHITE)
+                self.screen.fill((255,self.greenblue, self.greenblue))
                 pygame.display.flip()
                 time.sleep(0.01)                           # optional flash length
                 self.screen.fill(self.BLACK)

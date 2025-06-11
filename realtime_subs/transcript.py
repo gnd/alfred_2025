@@ -73,6 +73,7 @@ class SpeechTranslate(threading.Thread):
         self.target_lang = "cs"
 
         # Configuration
+        self.working = True
         self.text_buffer = ""
         self.prev_text_buffer = ""
         self.text_buffer_window = ""
@@ -100,10 +101,11 @@ class SpeechTranslate(threading.Thread):
 
     def on_exit(self, signum, frame):
         print("[speech-translate] Cleaning up ...")
+        self.working = False
         sys.exit(0)
 
     def run(self):
-        while True:
+        while self.working:
             if self.text_buffer == "":
                 pcyan("[speech-translate] Listening :)\n")
 
@@ -115,36 +117,37 @@ class SpeechTranslate(threading.Thread):
             #self.display_translation_async()
 
     def handle_stt_response(self, responses):
-        num_chars_printed = 0
-        start = time.time()
-        last_change = start
-        for response in responses:
-            time.sleep(0.001)
-            if not response.results:
-                continue
-            result = response.results[0]
-            if not result.alternatives:
-                continue
+        if self.working:
+            num_chars_printed = 0
+            start = time.time()
+            last_change = start
+            for response in responses:
+                time.sleep(0.001)
+                if not response.results:
+                    continue
+                result = response.results[0]
+                if not result.alternatives:
+                    continue
 
-            print(f"[speech-translate] alternatives: {result.alternatives[0]}")
-            transcript = result.alternatives[0].transcript
-            utterances = self.chop_utterance(self.translate_intermediate(transcript))
-            #print(f"Utterances: {utterances}")
-            ideal_utterance_number = int(floor((time.time() - start) / self.sub_duration))
-            #print(f"Ideal utterance: {ideal_utterance_number}")
-            if (len(utterances) > ideal_utterance_number):
-                if (time.time() - last_change > self.sub_refresh):
-                    last_change = time.time()
-                    #print(f"Displaying: {utterances[ideal_utterance_number]} (ideal)")
-                    self.dm.display_intermediate_translation(utterances[ideal_utterance_number])
-            else:
-                if (time.time() - last_change > self.sub_refresh):
-                    last_change = time.time()
+                print(f"[speech-translate] alternatives: {result.alternatives[0]}")
+                transcript = result.alternatives[0].transcript
+                utterances = self.chop_utterance(self.translate_intermediate(transcript))
+                #print(f"Utterances: {utterances}")
+                ideal_utterance_number = int(floor((time.time() - start) / self.sub_duration))
+                #print(f"Ideal utterance: {ideal_utterance_number}")
+                if (len(utterances) > ideal_utterance_number):
+                    if (time.time() - last_change > self.sub_refresh):
+                        last_change = time.time()
+                        #print(f"Displaying: {utterances[ideal_utterance_number]} (ideal)")
+                        self.dm.display_intermediate_translation(utterances[ideal_utterance_number])
+                else:
+                    if (time.time() - last_change > self.sub_refresh):
+                        last_change = time.time()
+                        self.dm.display_intermediate_translation(utterances[-1])
+                        #print(f"Displaying: {utterances[-1]} (intermediate)")
+
+                if result.is_final:
                     self.dm.display_intermediate_translation(utterances[-1])
-                    #print(f"Displaying: {utterances[-1]} (intermediate)")
-
-            if result.is_final:
-                self.dm.display_intermediate_translation(utterances[-1])
 
 
     def push_to_buffer(self, text):

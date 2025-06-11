@@ -44,6 +44,7 @@ class MidiListener(threading.Thread):
     def _handle(self, msg):
         if msg.type == 'note_on' and msg.velocity > 0:
             note = msg.note
+            print(note)
             if note == 1:
                 self.lil_drama.toggle_deathmatch()
                 self.led_state[note] = not self.led_state.get(note, False)
@@ -89,6 +90,7 @@ class MidiListener(threading.Thread):
         if msg.type == 'control_change':
             cc_num  = int(msg.control)
             cc_val  = int(msg.value)
+            #print(f"ccnum {cc_num} cc_val {cc_val}")
             if (cc_num not in self.controls):
                 self.controls[cc_num] = 0
             else:
@@ -101,7 +103,9 @@ class MidiListener(threading.Thread):
                         if self.lil_drama.deathmatch_proc:
                             self.lil_drama.deathmatch_kill_reel()
                         self.controls[cc_num] = cc_val
+                if cc_num == 59:
+                    self.lil_drama.adjust_greenblue((cc_val/127)*255)
                 if cc_num == 60:
                     self.lil_drama.adjust_strobe_freq(cc_val/10)
-                if cc_num == 59:
+                if cc_num == 61:
                     self.lil_drama.adjust_strobe_opacity(cc_val/127)
