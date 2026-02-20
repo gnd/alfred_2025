@@ -77,7 +77,7 @@ class lil_drama:
 		# MIDI listener
 		port_name = self.open_default_port()
 		print(f"Opening {port_name}")
-		self.midi = MidiListener(self, port_name)
+		self.midi = MidiListener(self, "lil_drama", port_name)
 		self.midi.start()
 
 		# Export Google API key
@@ -188,6 +188,11 @@ class lil_drama:
 			if self.secondary_screen:
 				cmd.append("--secondary")
 			self.strobe_proc = subprocess.Popen(cmd, cwd=HERE)
+
+	def toggle_gameplay_with_strobe(self):
+		print("Starting gameplay with strobe...")
+		self.toggle_gameplay()
+		self.toggle_strobe()
 
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")

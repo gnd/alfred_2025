@@ -65,7 +65,7 @@ class Strobe(threading.Thread):
         # MIDI listener
         port_name = self.open_default_port()
         print(f"Opening {port_name}")
-        midi = MidiListener(self, port_name)
+        midi = MidiListener(self, "strobe", port_name)
         midi.start()
 
     def open_default_port(self):
