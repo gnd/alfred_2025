@@ -32,6 +32,9 @@ class MemeDeathmatch(threading.Thread):
         self.reel_width = 300
         self.reel_anomaly = 100
         self.reels_folder = (Path(__file__).resolve().parent / "downloaded" / "smol")
+        # when 9:16 / for teaser
+        #self.reels_folder = (Path(__file__).resolve().parent / "downloaded")
+
         self.listen_port = 6666
         self.listen_host = 'localhost'
         self.loudness = "10"
@@ -53,6 +56,8 @@ class MemeDeathmatch(threading.Thread):
         self.current_reel_index = 0
         self.reel_files = [f for f in os.listdir(self.reels_folder) if f.endswith('.mp4')]
         random.shuffle(self.reel_files)
+        # when 9:16 screen / for teaser
+        #self.reel_files[1] = 'reel_251.mp4'
         self.reel_count = len(self.reel_files)
         if self.reel_count == 0:
             print("[deathmatch] No reels found in folder.")
@@ -76,6 +81,9 @@ class MemeDeathmatch(threading.Thread):
         actual_reel_width = self.reel_width + random_size
         random_x = random.randint(0, max(0, self.screen_width - actual_reel_width)) - 100
         random_y = random.randint(0, max(0, self.screen_height - 200)) - 100
+        # when 9:16 screen
+        #random_x = random.randint(int(self.screen_width/3)-50, max(0, (self.screen_width - actual_reel_width)-int(self.screen_width/3))+50)
+        #random_y = random.randint(0, max(0, self.screen_height - 200)) - 100
 
         cmd = [
             "nice", "-n", "19",
