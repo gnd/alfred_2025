@@ -1,0 +1,189 @@
+import os
+import sys
+import time
+import signal
+import socket
+import random
+import argparse
+import threading
+import subprocess
+from pathlib import Path, os
+from screeninfo import get_monitors
+
+class SmrtDivadlu(threading.Thread):
+
+    def __init__(self, lil_drama=None, secondary_screen=False):
+        super().__init__(daemon=True)
+
+        # The main app
+        self.lil_drama = lil_drama
+
+        # Threading stuff
+        self.active  = threading.Event()
+        self.stopper = threading.Event()
+
+        # Signal handling
+        signal.signal(signal.SIGTERM, self.on_exit)
+        signal.signal(signal.SIGINT, self.on_exit)
+
+        # Configuration
+        self.reel_width = 600
+        self.reels_folder = (Path(__file__).resolve().parent / "gameplay")
+        self.listen_port = 6667
+        self.listen_host = 'localhost'
+        self.kill_timeout = 0
+        self.loudness = -100
+        self.secondary_screen = secondary_screen
+        self.screen_offset = 0
+
+        # Socket stuff
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.listen_host, self.listen_port))
+        self.sock.listen()
+        print(f"[smrt divadlu] Ready on {self.listen_host}:{self.listen_port}")
+
+        # List of processes
+        self.process_list = []
+
+        # Load all reels
+        self.current_reel_index = 0
+        self.reel_files = [f for f in os.listdir(self.reels_folder) if (f.endswith('sludge.mp4') and f)]
+        self.reel_count = len(self.reel_files)
+        self.reel_files.sort()
+        if self.reel_count == 0:
+            print("[smrt divadlu] No reels found in folder.")
+            exit(1)
+
+        # Get screen dimensions
+        if (self.secondary_screen):
+            print("[smrt divadlu] Running on secondary screen")
+            monitor = get_monitors()[1]
+            self.screen_offset = get_monitors()[0].width
+        else:
+            monitor = get_monitors()[0]
+            self.screen_offset = 0
+        self.screen_width = monitor.width
+        self.screen_height = monitor.height
+        print(f"[smrt divadlu] width: {self.screen_width}, height: {self.screen_height}")
+        self.main_vid_fullscreen = True
+
+        # Video dimensions
+        self.width_smaller = int(self.screen_width / 2.66666)
+        self.width_half = int(self.screen_width / 2)
+        self.width_third = int(self.screen_width / 3)
+        self.width_fourth = int(self.screen_width / 4)
+        self.height_half = int(self.screen_height / 2)
+        self.height_third = int(self.screen_height / 3)
+        self.height_fourth = int(self.screen_height / 4)
+
+        # Launch first vid
+        self.launch_mainvid(os.path.join(self.reels_folder, 'smrt_divadlu.mp4'))
+
+    def launch_mainvid(self, file_path):
+        window_title = f"mplayer_main"
+        
+        cmd = [
+            "mplayer",
+            "-xy", f"{self.screen_width},{self.screen_height}",
+            "-geometry", f"{self.screen_offset}:0",
+            "-vo", "x11",
+            "-loop", "0",
+            "-really-quiet",
+            "-noborder",
+            "-nomouseinput",
+            "-hardframedrop",
+            "-double",
+            "-nosub",
+            # more quiet
+            "-af", f"volume=-{self.loudness}",
+            "-title",
+            window_title,
+            file_path
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+        self.process_list.append(proc)
+
+    def toggle_fullscreen(self, title, fullscreen):
+        if (fullscreen):
+            # Remove fullscreen
+            wmctrl_cmd = ["wmctrl", "-r", title, "-b", "remove,fullscreen"]
+            subprocess.run(wmctrl_cmd, check=True)
+        else:
+            # Add fullscreen
+            wmctrl_cmd = ["wmctrl", "-r", title, "-b", "add,fullscreen"]
+            subprocess.run(wmctrl_cmd, check=True)
+
+    def kill_player(self, proc):
+        if proc:
+            proc.kill()
+
+    def resume(self):
+        self.active.set()
+
+    def pause(self):
+        self.active.clear()
+
+    def shutdown(self):
+        self.stopper.set()
+        self.active.set()  
+
+    def on_exit(self, signum, frame):
+        print("[gameplay] Cleaning up ...")
+        while self.process_list:
+            self.kill_player(self.process_list.pop())
+        self.sock.close()
+        sys.exit(0)
+
+    # Thread entrypoint here
+    def run(self):
+        # endless loop
+        while not self.stopper.is_set():
+            if not self.active.wait(timeout=0.1):
+                continue 
+            try:
+                self.sock.settimeout(0.5)
+                conn, addr = self.sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            with conn:
+                print(f"Connected by {addr}")
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    command = data.decode().strip()
+                    if command == 'kill' and self.process_list:
+                        self.kill_player(self.process_list.pop())
+                        if (len(self.process_list) == 1):
+                            self.toggle_fullscreen("mplayer_main", self.main_vid_fullscreen)
+                            self.main_vid_fullscreen = not self.main_vid_fullscreen
+                            self.move_window("mplayer_main", 0, 0, self.screen_width, self.screen_height)
+                        print("[smrt divadlu] Killing last video.")
+                        print(f"[smrt divadlu] {len(self.process_list)} videos left..")
+
+# Start Gameplay Sludge
+def main():
+    # Parse some arguments
+    p = argparse.ArgumentParser()
+    p.add_argument("--secondary", action="store_true", help="Run on the secondary screen")
+    args = p.parse_args()
+    gameplay = SmrtDivadlu(secondary_screen=args.secondary)
+    gameplay.resume()
+    try:
+        gameplay.run()
+    except KeyboardInterrupt:
+        gameplay.shutdown()
+
+if __name__ == "__main__":
+    main()
