@@ -57,14 +57,15 @@ class MemeDeathmatch(threading.Thread):
         self.reel_files = [f for f in os.listdir(self.reels_folder) if f.endswith('.mp4')]
         random.shuffle(self.reel_files)
         # when 9:16 screen / for teaser
-        #self.reel_files[1] = 'reel_251.mp4'
+        # self.reel_files[1] = 'reel_251.mp4'
         # my jsme petr fiala lololol
         # remove block after perfo (02/2026)
-        random_fiala = int(random.random * 20)
+        fiala_force = 10
+        random_fiala = int(random.random() * 10)
         self.reel_files[random_fiala] = 'reel_fiala_1.mp4'
-        random_fiala = int(random.random * 20)
+        random_fiala = int(random.random() * 10)
         self.reel_files[random_fiala] = 'reel_fiala_2.mp4'
-        random_klempir = int(random.random * 20)
+        random_klempir = int(random.random() * 10)
         self.reel_files[random_klempir] = 'reel_klempir.mp4'
         # end of block
         self.reel_count = len(self.reel_files)

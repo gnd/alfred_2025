@@ -102,6 +102,11 @@ class MidiListener(threading.Thread):
                 if (self.name == "lil_drama"):
                     self.led_state[note] = not self.led_state.get(note, False)
                     self._set_led(note, self.led_state[note])
+            if note == 18:
+                self.main_app.toggle_smrt()
+                self.led_state[note] = not self.led_state.get(note, False)
+                self._set_led(note, self.led_state[note])
+            
         if msg.type == 'control_change':
             cc_num  = int(msg.control)
             cc_val  = int(msg.value)
