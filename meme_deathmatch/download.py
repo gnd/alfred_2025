@@ -1,6 +1,7 @@
 from instagrapi import Client
 import requests
 import os
+import json
 import configparser
 
 def load_config():
@@ -14,8 +15,18 @@ def load_config():
 
 def login(username, password):
     cl = Client()
+    cl.set_user_agent("Instagram 410.0.0.0.96 Android (33/13; 480dpi; 1080x2400; xiaomi; M2007J20CG; surya; qcom; en_US; 641123490)")
     cl.login(username, password)
     return cl
+
+def debug_one_xma_clip_raw(cl, thread_id):
+    data = cl.private_request(f"direct_v2/threads/{thread_id}/", params={"limit": "5"})
+    items = data.get("thread", {}).get("items", [])
+    xma = next((it for it in items if it.get("item_type") == "xma_clip"), None)
+    if not xma:
+        print("No xma_clip found in first page of raw items.")
+        return
+    print(json.dumps(xma, indent=2)[:5000])
 
 def get_video_url(msg):
     if msg.media_share and hasattr(msg.media_share, 'video_url'):
@@ -38,7 +49,7 @@ def download_reel(url, download_folder, index):
     print(f"Downloaded: {file_name}")
 
 def fetch_all_thread_messages(cl, thread_id):
-    messages = cl.direct_messages(thread_id, 400)
+    messages = cl.direct_messages(thread_id, 500)
     print(f"Fetched {len(messages)} messages (latest available).")
     return messages
 
@@ -62,7 +73,8 @@ def fetch_chat_and_download_reels():
     with open(thread_history_file, 'r') as file:
         previous_message_count = int(file.read().strip())
 
-    thread_messages = fetch_all_thread_messages(cl, target_thread.id)
+    #thread_messages = fetch_all_thread_messages(cl, target_thread.id)
+    debug_one_xma_clip_raw(cl, target_thread.id)
 
     reel_messages = [msg for msg in thread_messages if get_video_url(msg) is not None]
     current_message_count = len(reel_messages)
