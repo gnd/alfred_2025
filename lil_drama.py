@@ -40,12 +40,14 @@ class lil_drama:
 		self.ai_proc = None
 		self.wheel_proc = None
 		self.strobe_proc = None
+		self.smrt_proc = None
 
 		# Various vars
 		self.host = "127.0.0.1"
 		self.deathmatch_port = 6666
 		self.gameplay_port = 6667
 		self.tunnel_port = 6668
+		self.smrt_port = 6669
 		self.secondary_screen = False
 		
 		# Keyboard & Mouse listener
@@ -194,6 +196,17 @@ class lil_drama:
 		self.toggle_gameplay()
 		self.toggle_strobe()
 
+	def toggle_smrt(self):
+		if self.smrt_proc and self.smrt_proc.poll() is None:
+			print("Stopping smrt divadlu ...")
+			self.smrt_proc.terminate()
+		else:
+			print("Starting smrt divadlu ...")
+			cmd = [sys.executable, "-m", "smrt.player"]
+			if self.secondary_screen:
+				cmd.append("--secondary")
+			self.smrt_proc = subprocess.Popen(cmd, cwd=HERE)
+
 	def deathmatch_new_reel(self):
 		self._send_async(self.deathmatch_port, b"new\n")
 
@@ -211,6 +224,12 @@ class lil_drama:
 
 	def gameplay_kill_all(self):
 		self._send_async(self.gameplay_port, b"killall\n")
+
+	def smrt_kill_reel(self):
+		self._send_async(self.smrt_port, b"kill\n")
+
+	def smrt_kill_all(self):
+		self._send_async(self.smrt_port, b"killall\n")
 
 	def on_scroll(self, x, y, dx, dy):
 		if   dy > 0: self._send_async(self.deathmatch_port, b"new\n")
@@ -267,6 +286,9 @@ class lil_drama:
 		if self.strobe_proc:
 			print("Terminating strobe ...")
 			self.strobe_proc.terminate()
+		if self.smrt_proc:
+			print("Killing smrt divadlu ...")
+			self.smrt_proc.kill()
 		print("Quitting ...")
 		sys.exit(0)
 

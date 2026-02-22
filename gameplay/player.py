@@ -41,7 +41,7 @@ class GameplaySludge(threading.Thread):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.listen_host, self.listen_port))
         self.sock.listen()
-        print(f"[deathmatch] Ready on {self.listen_host}:{self.listen_port}")
+        print(f"[gameplay] Ready on {self.listen_host}:{self.listen_port}")
 
         # List of processes
         self.process_list = []
