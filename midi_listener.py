@@ -28,7 +28,7 @@ class MidiListener(threading.Thread):
         # Reset all notes - for note numbers see below
         # Only if main app is lil_drama (not strobe)
         if (self.name == "lil_drama"):
-            notes = [1, 3, 4, 6, 7, 9, 10, 13, 16, 19, 21, 22, 24]
+            notes = [1, 3, 4, 6, 7, 9, 10, 13, 16, 18, 19, 21, 22, 24]
             for note in notes:
                 self.led_state[note] = False
                 self._set_led(note, False)

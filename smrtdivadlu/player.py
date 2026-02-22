@@ -28,7 +28,7 @@ class SmrtDivadlu(threading.Thread):
 
         # Configuration
         self.reel_width = 600
-        self.reels_folder = (Path(__file__).resolve().parent / "gameplay")
+        self.reels_folder = (Path(__file__).resolve().parent / "smrt")
         self.listen_port = 6667
         self.listen_host = 'localhost'
         self.kill_timeout = 0
@@ -45,15 +45,6 @@ class SmrtDivadlu(threading.Thread):
 
         # List of processes
         self.process_list = []
-
-        # Load all reels
-        self.current_reel_index = 0
-        self.reel_files = [f for f in os.listdir(self.reels_folder) if (f.endswith('sludge.mp4') and f)]
-        self.reel_count = len(self.reel_files)
-        self.reel_files.sort()
-        if self.reel_count == 0:
-            print("[smrt divadlu] No reels found in folder.")
-            exit(1)
 
         # Get screen dimensions
         if (self.secondary_screen):

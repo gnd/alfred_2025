@@ -202,7 +202,7 @@ class lil_drama:
 			self.smrt_proc.terminate()
 		else:
 			print("Starting smrt divadlu ...")
-			cmd = [sys.executable, "-m", "smrt.player"]
+			cmd = [sys.executable, "-m", "smrtdivadlu.player"]
 			if self.secondary_screen:
 				cmd.append("--secondary")
 			self.smrt_proc = subprocess.Popen(cmd, cwd=HERE)
