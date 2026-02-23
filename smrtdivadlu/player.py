@@ -29,7 +29,7 @@ class SmrtDivadlu(threading.Thread):
         # Configuration
         self.reel_width = 600
         self.reels_folder = (Path(__file__).resolve().parent / "smrt")
-        self.listen_port = 6667
+        self.listen_port = 6669
         self.listen_host = 'localhost'
         self.kill_timeout = 0
         self.loudness = -100
@@ -59,20 +59,11 @@ class SmrtDivadlu(threading.Thread):
         print(f"[smrt divadlu] width: {self.screen_width}, height: {self.screen_height}")
         self.main_vid_fullscreen = True
 
-        # Video dimensions
-        self.width_smaller = int(self.screen_width / 2.66666)
-        self.width_half = int(self.screen_width / 2)
-        self.width_third = int(self.screen_width / 3)
-        self.width_fourth = int(self.screen_width / 4)
-        self.height_half = int(self.screen_height / 2)
-        self.height_third = int(self.screen_height / 3)
-        self.height_fourth = int(self.screen_height / 4)
-
         # Launch first vid
         self.launch_mainvid(os.path.join(self.reels_folder, 'smrt_divadlu.mp4'))
 
     def launch_mainvid(self, file_path):
-        window_title = f"mplayer_main"
+        window_title = f"mplayer_smrt"
         
         cmd = [
             "mplayer",
